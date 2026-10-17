@@ -226,8 +226,8 @@ const STAGED: Partial<Record<GameId, Stage>> = {
     const img = s.imgs[s.j];
     const none = { key: `show${s.j}`, host: [], guest: [] };
     return img.who === HOST
-      ? { ...none, guest: [{ a: 'tip', j: s.j, i: (img.ans + 1) % 4 }] }
-      : { ...none, host: [{ a: 'tip', j: s.j, i: img.ans }] };
+      ? { ...none, guest: [{ a: 'tip', j: s.j, i: img.ans }] }
+      : { ...none, host: [{ a: 'tip', j: s.j, i: (img.ans + 1) % 4 }] };
   },
 };
 

@@ -1,3 +1,4 @@
+import { renderBlindmaler } from './blindmaler/view';
 import { renderBlitz } from './blitz/view';
 import { renderBombe } from './bombe/view';
 import { renderErklaerbaer } from './erklaerbaer/view';
@@ -25,6 +26,7 @@ export const VIEWS: Partial<Record<GameId, Render<any, any>>> = {
   verraeter: renderVerraeter,
   pokerface: renderPokerface,
   erklaerbaer: renderErklaerbaer,
+  blindmaler: renderBlindmaler,
 };
 
 export const fallbackRender: Render<unknown, unknown> = (root) => {

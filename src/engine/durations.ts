@@ -36,6 +36,10 @@ export const PF_REVEAL = 6000;
 export const EB_TURN = 35000;
 export const EB_SKIP = 3000;
 export const EB_REVEAL = 4000;
+export const BM_DRAW = 20000;
+export const BM_DUO_DRAW = 10000;
+export const BM_SHOW = 6000;
+export const BM_REVEAL = 2000;
 
 export const BLITZ_MAX = 1000;
 export const GRACE = 1500;

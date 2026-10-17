@@ -1,3 +1,4 @@
+import { blindmaler } from './blindmaler/logic';
 import { blitz } from './blitz/logic';
 import { bombe } from './bombe/logic';
 import { erklaerbaer } from './erklaerbaer/logic';
@@ -27,6 +28,7 @@ export const GAMES: Record<GameId, GameDef<any, any, any>> = {
   verraeter,
   pokerface,
   erklaerbaer,
+  blindmaler,
 };
 
 export function gamesFor(only?: GameId): Record<string, GameDef<any, any, any>> {

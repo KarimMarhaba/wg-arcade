@@ -1361,3 +1361,150 @@
   font-weight: 800;
   color: var(--ink-dim);
 }
+
+.bm-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s3);
+  min-height: 0;
+  min-width: 0;
+}
+
+.bm-head,
+.bm-hint {
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.bm-head {
+  font-family: var(--font-display);
+  font-size: var(--fs-s);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bm-hint {
+  font-size: var(--fs-xs);
+}
+
+.bm-word,
+.bm-answer {
+  font-size: var(--fs-xl);
+  line-height: 1.05;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.bm-answer {
+  color: var(--ok);
+}
+
+.bm-pad,
+.bm-canvas {
+  position: relative;
+  align-self: center;
+  flex: none;
+  width: var(--canvas-d);
+  aspect-ratio: 1;
+  background: var(--bg);
+  border: var(--bw) solid var(--cyan);
+  border-radius: var(--r2);
+  box-shadow: var(--sh-sm);
+}
+
+.bm-pad {
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.bm-pad[data-locked='true'] {
+  border-color: var(--ink-dim);
+}
+
+.bm-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--dot-d);
+  height: var(--dot-d);
+  margin: calc(var(--dot-d) / -2) 0 0 calc(var(--dot-d) / -2);
+  pointer-events: none;
+  visibility: hidden;
+  background: var(--cyan);
+  border-radius: var(--rpill);
+  box-shadow: 0 0 var(--s4) var(--cyan);
+  animation: pulse var(--d-slow) ease-in-out infinite;
+}
+
+.bm-pad[data-on='true'] .bm-dot {
+  visibility: visible;
+}
+
+.bm-bottom {
+  display: grid;
+  gap: var(--s2);
+}
+
+.bm-wait,
+.bm-own,
+.bm-gain {
+  padding: var(--s3);
+  font-size: var(--fs-l);
+  text-align: center;
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+  box-shadow: var(--sh-sm);
+}
+
+.bm-wait {
+  color: var(--on-accent);
+  background: var(--ok);
+}
+
+.bm-own {
+  color: var(--on-accent);
+  background: var(--cyan);
+}
+
+.bm-gain {
+  align-self: center;
+  padding: var(--s1) var(--s4);
+  color: var(--on-accent);
+  background: var(--lime);
+}
+
+.bm-winners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  justify-content: center;
+  padding: 0;
+  list-style: none;
+}
+
+.bm-winner {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  font-weight: 800;
+  color: var(--ok);
+}
+
+.bm-none {
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.bm-stage .choice-pad .btn {
+  padding: 0 var(--s2);
+  font-size: var(--fs-s);
+}
+
+.bm-stage .choice-done {
+  display: none;
+}
