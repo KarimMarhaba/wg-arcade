@@ -26,9 +26,29 @@ export interface GameDef<S, I, V> {
   view(s: S, pid: string, now: number): V;
 }
 
+export type SfxKind = 'tap' | 'go' | 'ok' | 'bad' | 'tick' | 'win' | 'join' | 'start' | 'whoosh';
+export type FlashKind = 'ok' | 'bad';
+
+export interface Sfx {
+  play(kind: SfxKind): void;
+  buzz(pattern: number | number[]): void;
+  unlock(): void;
+  muted(): boolean;
+  setMuted(on: boolean): void;
+}
+
+export interface Fx {
+  punch(el: HTMLElement): void;
+  floatText(el: HTMLElement, text: string): void;
+  flash(kind: FlashKind): void;
+  reducedMotion(): boolean;
+}
+
 export interface ViewCtx {
   me: string;
   toLocal(hostT: number): number;
+  sfx: Sfx;
+  fx: Fx;
   reducedMotion: boolean;
 }
 

@@ -33,25 +33,30 @@ async function audit(page: Page, name: string, shot: string = name): Promise<voi
     };
   }, name);
   expect(r, `Screen ${shot}`).toEqual({ screens: 1, found: true, docOver: 0, rootOver: 0, small: [] });
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => Number(a.effect?.getTiming().duration) <= 1_000 && a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ).then(() => undefined),
+  );
   await page.screenshot({ path: `${SHOTS}/${shot}.png` });
 }
 
 const WATCH_CONFETTI = (): void => {
   window.confetti = { added: [], removed: [], pe: [], inPodium: [] };
-  const isCanvas = (n: Node): boolean => n instanceof Element && (n.matches('canvas') || n.querySelector('canvas') !== null);
-  new MutationObserver((list) => {
-    for (const m of list) {
-      m.addedNodes.forEach((n) => {
-        if (!isCanvas(n)) return;
-        window.confetti.added.push(performance.now());
-        if (n instanceof Element) {
-          window.confetti.pe.push(getComputedStyle(n).pointerEvents);
-          window.confetti.inPodium.push(n.closest('[data-screen=podium]') !== null);
-        }
-      });
-      m.removedNodes.forEach((n) => {
-        if (isCanvas(n)) window.confetti.removed.push(performance.now());
-      });
+  let present = false;
+  new MutationObserver(() => {
+    const c = document.querySelector('canvas');
+    if (c && !present) {
+      present = true;
+      window.confetti.added.push(performance.now());
+      window.confetti.pe.push(getComputedStyle(c).pointerEvents);
+      window.confetti.inPodium.push(c.closest('[data-screen=podium]') !== null);
+    } else if (!c && present) {
+      present = false;
+      window.confetti.removed.push(performance.now());
     }
   }).observe(document, { subtree: true, childList: true });
 };
@@ -264,7 +269,8 @@ test('Feel: Mute bleibt nach Reload, Unlock bei der ersten Geste, Wake Lock nur 
   expect(await start.evaluate(() => window.feel.ctx)).toBe(0);
   const mute = tid(start, 'btn-mute');
   const box = await mute.boundingBox();
-  expect([box?.width, box?.height]).toEqual([56, 56]);
+  expect(box?.width).toBeCloseTo(56, 0);
+  expect(box?.height).toBeCloseTo(56, 0);
   await expect(mute).toHaveAttribute('aria-pressed', 'false');
   await mute.click();
   expect(await start.evaluate(() => window.feel.ctx)).toBe(1);

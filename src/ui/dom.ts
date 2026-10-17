@@ -19,12 +19,6 @@ export function clear(el: Element): void {
   el.replaceChildren();
 }
 
-export function qs<T extends Element>(root: ParentNode, sel: string): T {
-  const el = root.querySelector<T>(sel);
-  if (!el) throw new Error(`Element fehlt: ${sel}`);
-  return el;
-}
-
 export interface Scope {
   on(target: EventTarget, type: string, fn: (e: Event) => void): void;
   add(off: () => void): void;

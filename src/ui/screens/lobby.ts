@@ -1,89 +1,136 @@
-import type { Mounted } from '../../games/types';
 import type { PlayerView, View } from '../../engine/view';
+import type { Mounted } from '../../games/types';
+import { button, codeBoxes, panel, playerBadge, screenFrame, segmented, shapeSvg, waitDots, type Segmented } from '../components';
 import { createScope, h } from '../dom';
+import { paletteAt } from '../palette';
 import { qrSvg } from '../qr';
 import type { Env } from './types';
 
 type LobbyView = Extract<View, { s: 'lobby' }>;
 
 const ROUNDS = [3, 5, 8] as const;
+const MAX_PLAYERS = 8;
 
-function playerRow(p: PlayerView, me: string): HTMLElement {
-  return h(
-    'li',
-    { testid: 'player', 'data-pid': p.pid, 'data-online': String(p.online), 'data-color': p.color },
-    p.name,
-    p.pid === me ? ' (du)' : null,
-    p.host ? ' · HOST' : null,
-    p.online ? null : ' · offline',
-  );
+function rowContent(p: PlayerView, me: string): Node[] {
+  return [
+    playerBadge(p, { size: 's', me: p.pid === me }),
+    h('span', { class: 'name' }, p.name),
+    p.host ? h('span', { class: 'tag' }, 'HOST') : null,
+    p.online ? null : h('span', { class: 'tag' }, 'OFFLINE'),
+  ].filter((n): n is HTMLElement => n !== null);
+}
+
+function syncOrder(list: HTMLElement, items: HTMLElement[]): void {
+  items.forEach((li, i) => {
+    if (list.children[i] !== li) list.insertBefore(li, list.children[i] ?? null);
+  });
+  while (list.children.length > items.length) list.lastElementChild?.remove();
 }
 
 export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mounted<View> {
   const sc = createScope();
   const control = first.isHost ? env.control : undefined;
+  const { sfx } = env.ctx;
   let dead = false;
+  let rendered = false;
+  const items = new Map<string, HTMLElement>();
   const list = h('ul', { class: 'players' });
-  const heading = h('h2', {});
-  const code = h('p', { class: 'code', testid: 'room-code', 'aria-label': 'Raumcode' });
-  const kids: (HTMLElement | null)[] = [h('p', {}, 'RAUMCODE'), code];
+  const heading = h('p', { class: 'heading-row' });
+  const waitText = h('span', {});
+  const hint = h('p', { class: 'note', 'aria-live': 'polite' });
+  let start: HTMLButtonElement | undefined;
+  let rounds: Segmented<3 | 5 | 8> | undefined;
 
-  let qr: HTMLElement | undefined;
+  const main: HTMLElement[] = [];
+  const foot: HTMLElement[] = [];
   if (control) {
-    qr = h('div', { class: 'qr', testid: 'qr', role: 'img', 'aria-label': 'QR-Code zum Beitreten' });
+    const qr = h('div', { class: 'qr', testid: 'qr', role: 'img', 'aria-label': 'QR-Code zum Beitreten' });
     qrSvg(env.joinUrl(first.code)).then(
       (svg) => {
-        if (!dead && qr) qr.innerHTML = svg;
+        if (!dead) qr.innerHTML = svg;
       },
       () => {},
     );
-    kids.push(qr);
-  } else {
-    kids.push(h('p', { class: 'me' }, `DU BIST DRIN, ${first.players.find((p) => p.pid === first.me)?.name ?? ''}`));
-  }
-  kids.push(heading, list);
-
-  let start: HTMLButtonElement | undefined;
-  const roundBtns = new Map<number, HTMLButtonElement>();
-  const hint = h('p', {});
-  const waiting = h('p', { 'aria-live': 'polite' });
-  if (control) {
-    const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Runden' });
-    for (const n of ROUNDS) {
-      const b = h('button', { type: 'button', testid: `rounds-${n}` }, String(n));
-      roundBtns.set(n, b);
-      sc.on(b, 'click', () => control({ a: 'rounds', n }));
-      seg.append(b);
-    }
-    start = h('button', { type: 'button', testid: 'btn-start' }, "LOS GEHT'S");
+    rounds = segmented(ROUNDS, first.rounds, (n) => control({ a: 'rounds', n }), { label: 'Runden', testid: (n) => `rounds-${n}` });
+    start = button("LOS GEHT'S", { size: 'l', testid: 'btn-start' });
     sc.on(start, 'click', () => control({ a: 'start' }));
-    kids.push(h('p', {}, 'RUNDEN'), seg, start, hint);
+    main.push(
+      panel(qr, codeBoxes(first.code)),
+      heading,
+      list,
+      h('p', { class: 'heading-row' }, 'RUNDEN'),
+      rounds.el,
+      h('p', { class: 'note' }, 'Host-Handy anlassen'),
+    );
+    foot.push(hint, start);
   } else {
-    kids.push(waiting);
+    const me = first.players.find((p) => p.pid === first.me);
+    main.push(
+      h(
+        'div',
+        { class: 'me-block', 'data-color': me?.color ?? 0 },
+        shapeSvg(paletteAt(me?.color ?? 0).shape),
+        h('p', { class: 'display t-l' }, 'DU BIST DRIN'),
+        h('p', { class: 'name' }, me?.name ?? ''),
+      ),
+      heading,
+      list,
+      h('p', { class: 'note', 'aria-live': 'polite' }, waitText, waitDots()),
+    );
   }
 
-  const el = h('main', { 'data-screen': 'lobby' }, ...kids);
+  const frame = screenFrame({
+    screen: 'lobby',
+    head: [h('span', {}, 'LOBBY')],
+    main,
+    foot: foot.length ? foot : undefined,
+  });
 
   function update(v: View): void {
     if (v.s !== 'lobby') return;
-    code.textContent = v.code;
-    heading.textContent = `SPIELER ${v.players.length}/8`;
-    list.replaceChildren(...v.players.map((p) => playerRow(p, v.me)));
-    for (const [n, b] of roundBtns) b.setAttribute('aria-pressed', String(v.rounds === n));
+    const live = new Set(v.players.map((p) => p.pid));
+    for (const [pid, li] of items)
+      if (!live.has(pid)) {
+        li.remove();
+        items.delete(pid);
+      }
+    let joined = false;
+    const ordered = v.players.map((p) => {
+      let li = items.get(p.pid);
+      if (!li) {
+        li = h('li', { testid: 'player', 'data-pid': p.pid });
+        items.set(p.pid, li);
+        if (rendered) {
+          joined = true;
+          li.classList.add('pop');
+          li.addEventListener('animationend', () => li?.classList.remove('pop'), { once: true });
+        }
+      }
+      li.setAttribute('data-online', String(p.online));
+      li.setAttribute('data-color', String(p.color));
+      li.replaceChildren(...rowContent(p, v.me));
+      return li;
+    });
+    syncOrder(list, ordered);
+    if (joined) sfx.play('join');
+    rendered = true;
+
+    heading.textContent = `SPIELER ${v.players.length}/${MAX_PLAYERS}`;
+    rounds?.set(v.rounds);
     if (start) start.disabled = !v.canStart;
     hint.textContent = v.canStart ? '' : `Mindestens ${v.min} Spieler`;
-    const hostName = v.players.find((p) => p.host)?.name ?? 'den Host';
-    waiting.textContent = `Warte auf ${hostName} …`;
+    hint.hidden = v.canStart;
+    waitText.textContent = `Warte auf ${v.players.find((p) => p.host)?.name ?? 'den Host'} …`;
   }
 
   update(first);
-  slot.append(el);
+  slot.append(frame.root);
   return {
     update,
     destroy() {
       dead = true;
       sc.dispose();
-      el.remove();
+      frame.root.remove();
     },
   };
 }

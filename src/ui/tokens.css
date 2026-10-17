@@ -5,15 +5,33 @@
   --ink: #f4f1ea;
   --ink-dim: #a29eb3;
   --line: #000;
+
   --lime: #c6ff00;
+  --hot: #ff2e88;
+  --cyan: #00e5ff;
+  --orange: #ff8a00;
+  --ok: #3dff8c;
   --bad: #ff3b4e;
-  --tap-min: 56px;
-  --maxw: 520px;
+  --warn: #ffd23d;
+  --on-accent: #0c0b10;
+
+  --p0: #c6ff00;
+  --p1: #ff2e88;
+  --p2: #00e5ff;
+  --p3: #ff8a00;
+  --p4: #b388ff;
+  --p5: #ffe600;
+  --p6: #3dffb5;
+  --p7: #4d7cff;
 
   --ff-rot: #ff3b4e;
   --ff-blau: #3d7bff;
   --ff-gelb: #ffe14d;
   --ff-weiss: #f4f1ea;
+
+  --dot: color-mix(in srgb, var(--ink) 7%, transparent);
+  --dot-size: 1px;
+  --dot-gap: 24px;
 
   --s1: 4px;
   --s2: 8px;
@@ -24,6 +42,60 @@
   --s7: 48px;
   --s8: 64px;
 
+  --r0: 0;
+  --r1: 6px;
+  --r2: 14px;
+  --rpill: 999px;
+
+  --bw: 3px;
+  --sh: 6px 6px 0 var(--line);
+  --sh-sm: 3px 3px 0 var(--line);
+  --sh-press: 1px 1px 0 var(--line);
+  --press-shift: 5px;
+  --logo-sh: 4px 4px 0 var(--hot), 8px 8px 0 var(--line);
+  --focus-w: 4px;
+  --focus-off: 3px;
+  --stripe-w: 8px;
+
+  --d-fast: 90ms;
+  --d-base: 180ms;
+  --d-slow: 360ms;
+  --d-pop: 420ms;
+  --stagger: 60ms;
+  --d-float: 600ms;
+  --d-punch: 120ms;
+  --d-flash: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-snap: cubic-bezier(0.2, 1.5, 0.35, 1);
+
+  --enter-y: var(--s4);
+  --float-dy: 48px;
+  --punch-x: 6px;
+  --punch-y: 3px;
+  --flash-alpha: 0.35;
+
+  --tap-min: 56px;
+  --tap-l: 64px;
+  --maxw: 520px;
+  --dim-offline: 0.38;
+  --qr-w: 60vw;
+  --qr-max: 280px;
+  --badge-s: 22px;
+  --badge-m: 30px;
+  --badge-l: 96px;
+  --icon-l: 96px;
+  --icon-m: 28px;
+  --bar-h: 14px;
+  --podium-h: 220px;
+
   --font-display: 'Bricolage Grotesque Variable', 'Archivo Black', system-ui, sans-serif;
   --font-text: 'Space Grotesk Variable', system-ui, sans-serif;
+
+  --fs-mega: clamp(72px, 26vw, 168px);
+  --fs-xxl: clamp(48px, 15vw, 96px);
+  --fs-xl: clamp(34px, 9vw, 56px);
+  --fs-l: 26px;
+  --fs-m: 20px;
+  --fs-s: 16px;
+  --fs-xs: 13px;
 }

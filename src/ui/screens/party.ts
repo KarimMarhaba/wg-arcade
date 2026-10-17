@@ -1,6 +1,7 @@
 import type { View } from '../../engine/view';
 import type { Mounted } from '../../games/types';
 import type { ClientSession } from '../../net/client';
+import { banner as bannerEl, neutralScreen } from '../components';
 import { h } from '../dom';
 import { mountGame } from './game';
 import { mountIntro } from './intro';
@@ -13,7 +14,7 @@ import type { Env, Unmount } from './types';
 export interface PartyProps {
   session: ClientSession;
   env: Env;
-  onRejoin(): void;
+  onRejoin?: () => void;
   onHome(): void;
   onBadName(): void;
 }
@@ -41,10 +42,9 @@ export function mountParty(slot: HTMLElement, p: PartyProps): Unmount {
       return;
     }
     if (!banner) {
-      banner = h('p', { class: 'banner', role: 'status', testid: 'banner' });
+      banner = bannerEl(text, 'warn', { testid: 'banner', role: 'status', fixed: true });
       wrap.prepend(banner);
-    }
-    banner.textContent = text;
+    } else banner.textContent = text;
   };
 
   const show = (key: string, make: () => Omit<Current, 'key'>): boolean => {
@@ -56,7 +56,7 @@ export function mountParty(slot: HTMLElement, p: PartyProps): Unmount {
 
   const neutral = (text: string) =>
     show('wait', () => {
-      const el = h('main', { class: 'neutral' }, h('p', {}, text));
+      const el = neutralScreen(text);
       body.append(el);
       return { destroy: () => el.remove() };
     });
@@ -101,7 +101,7 @@ export function mountParty(slot: HTMLElement, p: PartyProps): Unmount {
         break;
       case 'lost':
         setBanner(undefined);
-        show('lost', () => mountLost(body, { onRejoin: p.onRejoin, onHome: p.onHome }));
+        show('lost', () => mountLost(body, { onRejoin: p.env.control ? undefined : p.onRejoin, onHome: p.onHome }));
         break;
     }
   });

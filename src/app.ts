@@ -3,12 +3,18 @@ import { createHost } from './engine/host';
 import { createEngine } from './engine/party';
 import { mulberry32, randomSeed } from './engine/prng';
 import type { After, Every } from './engine/types';
+import type { Sfx } from './games/types';
 import { gamesFor } from './games/index';
 import { createClientSession } from './net/client';
 import { normalizeCode } from './net/code';
 import { createTransport } from './net/transport';
-import { h } from './ui/dom';
-import { mountName } from './ui/screens/name';
+import { neutralScreen } from './ui/components';
+import { clear } from './ui/dom';
+import { createFx } from './ui/fx';
+import { browserVibrate, createBuzz } from './ui/haptics';
+import { createSfx } from './ui/sfx';
+import { createWakeLock } from './ui/wakelock';
+import { MAX_NAME, mountName } from './ui/screens/name';
 import { mountParty } from './ui/screens/party';
 import { mountStart } from './ui/screens/start';
 import type { Env, Unmount } from './ui/screens/types';
@@ -57,7 +63,7 @@ function getPid(): string {
   return pid;
 }
 
-const validName = (n: string | null): n is string => n !== null && n.trim().length >= 1 && n.trim().length <= 12;
+const validName = (n: string | null): n is string => n !== null && n.trim().length >= 1 && n.trim().length <= MAX_NAME;
 
 export function startApp(root: HTMLElement): void {
   const flags = parseFlags(location.search);
@@ -68,10 +74,26 @@ export function startApp(root: HTMLElement): void {
   let transport: ReturnType<typeof createTransport> | undefined;
   const getTransport = () => (transport ??= createTransport(flags.net));
 
+  const sound = createSfx();
+  const sfx: Sfx = { ...sound, buzz: createBuzz({ vibrate: browserVibrate(), muted: () => sound.muted() }) };
+  const fx = createFx();
+  const wake = createWakeLock();
+  for (const type of ['pointerdown', 'pointerup', 'keydown'])
+    document.addEventListener(type, () => sound.unlock(), { capture: true, passive: true });
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (!(e.target instanceof Element) || !e.target.closest('button:not(:disabled):not([data-silent])')) return;
+      sfx.play('tap');
+      sfx.buzz(10);
+    },
+    true,
+  );
+
   const mount = (make: (slot: HTMLElement) => Unmount): void => {
     running?.destroy();
     running = undefined;
-    root.replaceChildren();
+    clear(root);
     running = make(root);
   };
 
@@ -87,7 +109,7 @@ export function startApp(root: HTMLElement): void {
 
   const neutral = (text: string): void =>
     mount((slot) => {
-      const el = h('main', { class: 'neutral' }, h('p', {}, text));
+      const el = neutralScreen(text);
       slot.append(el);
       return { destroy: () => el.remove() };
     });
@@ -96,6 +118,7 @@ export function startApp(root: HTMLElement): void {
     mount((slot) =>
       mountStart(slot, {
         banner,
+        sfx,
         onHost: () => {
           hostIntent = true;
           go('#/host');
@@ -122,7 +145,9 @@ export function startApp(root: HTMLElement): void {
     ctx: {
       me: pid,
       toLocal: (t) => (s ? s.toLocal(t) : t),
-      reducedMotion: guard(() => matchMedia('(prefers-reduced-motion: reduce)').matches, false),
+      sfx,
+      fx,
+      reducedMotion: fx.reducedMotion(),
     },
     send: (round, payload) => s?.input(round, payload),
     control: host?.control,
@@ -161,12 +186,13 @@ export function startApp(root: HTMLElement): void {
         const party = mountParty(slot, {
           session: sess,
           env,
-          onRejoin: () => go('#/host'),
           onHome: () => go('#/'),
           onBadName: () => go('#/'),
         });
+        wake.acquire();
         return {
           destroy() {
+            wake.release();
             party.destroy();
             sess.close();
             host.stop();
@@ -203,8 +229,10 @@ export function startApp(root: HTMLElement): void {
         },
         onBadName: () => showName((n) => launchClient(code, n), 'Dieser Name ist nicht erlaubt.'),
       });
+      wake.acquire();
       return {
         destroy() {
+          wake.release();
           party.destroy();
           sess.close();
         },

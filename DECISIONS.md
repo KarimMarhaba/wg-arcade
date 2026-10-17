@@ -85,3 +85,35 @@ Warum: `close()` feuert `onClose` synchron; ohne diese Reihenfolge würde ein Re
 ## 2026-10-17 — `ViewCtx` ohne `sfx`/`fx` bis Schritt 6
 Was: `ViewCtx = {me, toLocal, reducedMotion}`; `sfx` und `fx` kommen mit Schritt 6 (Design-System). `Mounted` und `Render` stehen in `games/types.ts`. Der Rejected-Screen lebt in `screens/lost.ts`; `fakeclock.ts` ist ein reiner Test-Helfer in `src/engine/`.
 Warum: `Sfx`/`Fx` existieren erst in Schritt 6; Schritt 5 braucht nur Zeitumrechnung und Reduced-Motion.
+
+## 2026-10-17 — Hex nur in tokens.css, Zusatz-Tokens, Wächter
+Was: Alle Hex-Werte stehen ausschließlich in `ui/tokens.css`, auch die Spielerfarben `--p0..--p7`. `palette.ts` hält nur Name, Form-Id und SVG-Pfad (keine Hex-Werte); die Farbe kommt über `data-color` → `--pc` in `components.css`, das Konfetti liest `getComputedStyle(--pN)`. Dazu Zusatz-Tokens für Werte, die §6.5 ohne Token nennt: `--stagger` (60 ms), `--d-float` (600 ms), `--d-punch` (120 ms), `--d-flash` (220 ms), `--punch-x`/`--punch-y` (6/3 px), `--enter-y`, `--flash-alpha`, außerdem Layout-Maße (`--qr-w`, `--badge-*`, `--podium-h`, `--bar-h`, `--dot-*`, `--stripe-w`, `--logo-sh` …). `ui/tokens.test.ts` ersetzt die Hand-grep-Kontrolle: Es schlägt bei Hex- oder px-Literalen in `src/**/*.{ts,css}` außerhalb von `tokens.css` (Tests ausgenommen) und bei `var(--x)` ohne Definition fehl und prüft den Kontrast ≥ 4.5 von `--on-accent` auf allen Spieler- und Akzentfarben.
+Warum: Hex in `palette.ts` und in `--p0..7` wären zwei Quellen für dieselbe Farbe (Lehre „Regel an drei Stellen“). Der Wächter hält die Regel dauerhaft, auch für spätere Schritte.
+
+## 2026-10-17 — Zeitbalken ohne `dur`, Ausnahme vom Reduced Motion
+Was: `timerBar(hostEndsAt, dur?, ctx)` nimmt `dur` optional. Ohne `dur` startet der Balken beim Mount voll und läuft linear bis `toLocal(hostEndsAt)` (Ergebnis-Screen, dessen Sicht nur `until` trägt). Mit `dur` beginnt er bei `Rest/dur`. Unter `prefers-reduced-motion` laufen alle Animationen und Transitions mit 0.01 ms, nur `.timer-fill` behält seine Dauer (`--bar-ms`).
+Warum: Engine und Sicht bleiben unverändert. Der Balken ist Information (Restzeit), keine Bewegung; ihn abzuschalten würde die Restzeit verstecken.
+
+## 2026-10-17 — Audio-Unlock bei der ersten Geste (document-Listener)
+Was: `app.ts` hängt `pointerdown`, `pointerup` und `keydown` (capture, passive) an `document` und ruft jedes Mal das idempotente `sfx.unlock()` (erzeugt den Context einmal, weckt einen angehaltenen). Zusätzlich liefert ein `click`-Listener für jeden aktiven Knopf (außer `data-silent`, z. B. Mute) `sfx tap` und `buzz(10)`. Kein Unlock im Start-/Join-Klick.
+Warum: Auto-Rejoin (Reload auf `#/j/CODE`) hat vor dem ersten Ton keinen eigenen Klick. iOS entsperrt erst bei `pointerup`/`click`, nicht bei `pointerdown`; daher bleiben die Listener bestehen statt „einmalig“. `buzz` läuft nur im Klick-Handler (Geste), nie beim Mount.
+
+## 2026-10-17 — `Sfx`/`Fx` in `games/types.ts`
+Was: `Sfx {play, buzz, unlock, muted, setMuted}`, `SfxKind` und `Fx {punch, floatText, flash, reducedMotion}` stehen als Interfaces in `games/types.ts`; `ViewCtx` trägt `sfx` und `fx`. Die Implementierungen leben in `ui/` (`sfx.ts`, `haptics.ts`, `fx.ts`), `app.ts` setzt sie in `envFor` zusammen (`buzz` aus `haptics.ts`, das dem Mute von `sfx` folgt). `Fx.flash(kind)` ist neu gegenüber §3.4 und dient Schritt 7 (Treffer/Fehler).
+Warum: Kein Import games → ui (Spiel-Views kennen nur die Interfaces). Haptik gehört fürs Spiel zu „Feedback“; ein Objekt in `ViewCtx` genügt.
+
+## 2026-10-17 — Rejected zeigt nur `btn-home` (Klärung zu §7.3)
+Was: Der Rejected-Screen hat ausschließlich `btn-home` („ZUM START“), kein `btn-rejoin`. §7.3 nennt `btn-rejoin` unter „Lost/Rejected“; gemeint ist Lost.
+Warum: Ein Beitritt, den die Party abgelehnt hat (voll, läuft schon), wird durch erneutes Beitreten nicht besser. §6.6 nennt für Rejected nur „ZUM START“.
+
+## 2026-10-17 — Host-Lost ohne `btn-rejoin`
+Was: Der Lost-Screen des Hosts (`env.control` gesetzt) zeigt nur `btn-home`; Clients behalten `btn-rejoin` und `btn-home`. `PartyProps.onRejoin` ist optional, `launchHost` übergibt es nicht mehr.
+Warum: Für den Host führte „Neu beitreten“ nach `#/host` ohne Host-Absicht auf den Start (Reload-Regel), wirkte also wie „Zum Start“ und täuschte eine zweite Option vor.
+
+## 2026-10-17 — Spiel-Views mounten in `frame.body`
+Was: `mountGame` baut den Rahmen (`screenFrame` mit Header „RUNDE r/n · Titel aus `GAMES`“ und Code) und übergibt `frame.body` als `root` an die Spiel-View; `data-screen`, `data-game` und `data-state` (`play`) bleiben am Screen-Root.
+Warum: Der Rahmen ist ein Grid mit Header, Inhalt und Footer; Spiel-Elemente direkt im Root würden das Grid verschieben. Schritt 7 füllt nur den Inhaltsbereich.
+
+## 2026-10-17 — screens.spec: Rundgang ohne fast, Podium mit fast
+Was: Der Rundgang in `screens.spec.ts` läuft ohne `fast` (`dev=1&only=hammer`, Intro 3 s, Spiel 8 s, Ergebnis 5 s) und schließt am Ende die Host-Seite (Lost, Timeout 45 s). Podium (B), Reduced Motion (C), Feel und Lobby-Pop laufen mit `fast`. Kein Canvas wird per MutationObserver ab Seitenstart gemessen (`addInitScript`), mit (B) als Positivkontrolle.
+Warum: Mit `fast` dauern Intro (300 ms), Hammer (800 ms) und Ergebnis (500 ms) kürzer als das Poll-Intervall von `expect` nach dem Backoff (500 ms); Screenshot und Messung verpassten den Screen. Der Beobachter erkennt auch ein Canvas, das kürzer lebt als ein Poll-Intervall.
