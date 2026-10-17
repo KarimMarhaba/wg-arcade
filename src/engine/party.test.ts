@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_IDS } from '../games/types';
 import { INTRO, RESULT, scale } from './durations';
-import { type DummyState, DUMMY_MS, dummyRegistry } from './dummygame';
+import { type DummyState, DUMMY_MS, dummyRegistry, makeDummy } from './dummygame';
 import { createEngine } from './party';
 import { mix32 } from './prng';
 import { planOrder } from './rounds';
@@ -548,5 +548,12 @@ describe('viewFor', () => {
   it('enthält keine Zeitstempel der Spieler', () => {
     const json = JSON.stringify(eng.viewFor(lobby(), HOST, 0));
     expect(json).not.toContain('lastSeen');
+  });
+});
+
+describe('createEngine', () => {
+  it('wirft, wenn die Registry keine GameId enthält', () => {
+    expect(() => createEngine({})).toThrow();
+    expect(() => createEngine({ unbekannt: makeDummy('blitz') })).toThrow();
   });
 });
