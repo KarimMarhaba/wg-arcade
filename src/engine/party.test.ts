@@ -539,9 +539,10 @@ describe('viewFor', () => {
     expect(JSON.stringify(eng.viewFor(eng.tick(l, 100), 'a', 100))).toBe(JSON.stringify(eng.viewFor(l, 'a', 0)));
     const { p, t } = reachAll().play;
     const q = eng.input(p, 'a', 0, { v: 2 }, t);
-    const later = eng.tick(q, t + 100);
-    expect(JSON.stringify(eng.viewFor(later, 'a', t + 100))).toBe(JSON.stringify(eng.viewFor(q, 'a', t)));
-    expect(JSON.stringify(eng.viewFor(later, HOST, t + 100))).toBe(JSON.stringify(eng.viewFor(q, HOST, t)));
+    const later = eng.tick(q, t + 50);
+    expect(later.phase.k).toBe('play');
+    expect(JSON.stringify(eng.viewFor(later, 'a', t + 50))).toBe(JSON.stringify(eng.viewFor(q, 'a', t)));
+    expect(JSON.stringify(eng.viewFor(later, HOST, t + 50))).toBe(JSON.stringify(eng.viewFor(q, HOST, t)));
   });
 
   it('enthält keine Zeitstempel der Spieler', () => {
