@@ -1,0 +1,38 @@
+# paket2 — Schritt 2: UI-Bausteine, `drive()`, Duo-E2E der 4 Altspiele, `bankcheck`/`match` (Abgleich)
+
+Master-Plan §3.2, §4, §6.1, §9 D-P2-4/13, §10 S2. Basis `hew/paket2` @ 13e73c1 (S1 + Review). Jeder Shell-Aufruf mit PATH-Export.
+
+## 1. Abgleich (gemessen 2026-10-17)
+| Master-Annahme | Befund | Korrektur |
+|---|---|---|
+| Bausteine `namePicker(players, {self,onPick})` usw. „liefern eigenes Feedback über `ctx.sfx`“ | Die Signaturen in §3.2 haben kein `ctx`. Ohne `sfx`/`me` gibt es weder Ton noch das eigene Abzeichen | Jede Fabrik bekommt `ctx` (`Pick<PlayCtx,'sfx'\|'me'>` reicht). Muster wie `segmented` in `components.ts` (`{el,set}` + `destroy`), Knöpfe über `button()`, Namen über `playerBadge()` |
+| „Bausteine tragen `data-silent`“ | `app.ts:85` spielt den globalen Klickton für `closest('button:not(:disabled):not([data-silent])')`. Ein `data-silent` am Wrapper wirkt nicht | `data-silent` an **jedem** `<button>` des Bausteins, sonst gibt es Doppelton |
+| `expectBank(items, {min, text, max: number, quotas})` | Ein einziges `max` kann „Frage ≤ 90, Option ≤ 18“ (gleichklang, S3) nicht ausdrücken. Dedupe über alle Strings würde gleiche Optionen über verschiedene Fragen („Ja“/„Nein“) melden. Eine Funktion mit `expect` darin kann ihre eigene Positivkontrolle nicht testen (S1-Lehre `leaks`) | Reine `bankProblems(items, opts) → string[]`: Grenze **je String** (z. B. `text: x => [[x.q, 90], …]`), Dedupe nur über `key(x)` (Default: erster Text) per `norm`. Kein `vitest`-Import in `bankcheck.ts`. Tests prüfen `expect(bankProblems(…)).toEqual([])` (API-Form reversibel) |
+| Verbots-Lint als Regex-Liste mit `\b` | In JS ist `\b` nur ASCII. Muster, die mit Umlaut beginnen oder enden, treffen nie. Ein naives `/euro/i` meldet die vorhandene Schätzfuchs-Frage „…Europäischen Union“ (Z. 49/51) | Grenzen über `(?<!\p{L})…(?!\p{L})` mit Flag `u`. Je Muster entscheiden: ganzes Wort (`Ex`, `Sex`) oder Stamm (`krank\p{L}*`). `Geld/Euro/anfassen/küssen` als Zusatzliste je Bank (`forbid?`), nur für Pflichten |
+| `bankcheck` „bereit“, ohne Verbraucher | Die Schätzfuchs-Bank hat 56 Fragen (längste 88 Zeichen) und ihren eigenen Test | `questions.test.ts` ruft zusätzlich `bankProblems` auf (Fragen ≤ 90, Einheit ≤ 18). Das ist der erste echte Verbraucher und beweist, dass der Lint keinen Fehlalarm auf echten Texten gibt |
+| `drive()` „einmal je (state, step, role)“ | Kein Altspiel setzt `step`/`role` (nur `setState(state)`). Blitz durchläuft `go` dreimal ohne `step`, Hammer und Farbfalle sind Klickschleifen in **einem** Zustand. Nur Schätzfuchs passt (eine Aktion in `ask`) | Der Vertrag wird mit einer Fixture per `page.setContent` getestet (ohne App). Danach läuft `playSchaetzfuchs` über `drive` als erster echter Verbraucher, Optionen `guess`/`enter` bleiben. Die anderen 3 Bots bleiben unverändert |
+| duo.spec prüft „Label-Regex je Spiel, `data-state` ⊇ Vertrag“ | `LABEL`/`CONTRACT` stehen lokal in `games.spec.ts`. Playwright lehnt den Import einer Spec aus einer anderen Spec ab | Tabellen in ein Nicht-Spec-Modul ziehen (z. B. `e2e/contract.ts`). games.spec prüft weiter exakt. duo prüft ⊇, Blitz ohne `early` = `{done,go,show,wait}`. `cssColor` aus drink.spec nach `helpers.ts` |
+| Punkte {5,3} oder {5,5} | `rank`: ohne Eingabe Platz `pids.length`, **0 Punkte** und Label `–` | Die Assertion beweist damit auch, dass beide Bots mitgespielt haben. Schätzfuchs (`relErr` roh) mit festem Seed ist deterministisch: Der nähere Tipp gewinnt (Host 50, Gast 5000) |
+| `Played.picks` | hat noch keinen Verbraucher | erst in S3 |
+| Neue Pflicht-Tokens | `tokens.test` verlangt, dass jede `var(--x)` definiert ist. Inline gesetzte Props gelten nur als deklariert, wenn der Name als String-Literal im TS steht (`'--share'`) | Balkenbreite über `style.setProperty('--share', …)` oder `scaleX`, nie px. Neue Tokens nur, wenn nötig |
+
+Passt: `center()` + `page.mouse.click`, `watch.ts` zeichnet schon Ergebnisse/Podium/Tint auf, `playRound`-Dispatch, `rounds=1`/`seed` nur mit `dev` (Query hat immer `dev=1`), `workers: 1` (gleicher Seed in allen 4 Duo-Tests ok, S1).
+
+## 2. Entscheidungen & Fallen
+- **Bausteine ohne Laufzeittest in S2:** Das ist Master-Vorgabe (§0 kein jsdom, §10 S2 keine Vorschau). Abgedeckt sind sie durch tsc und `tokens.test` (Styles). Die erste DOM-/Audit-Prüfung ist DoD von S3. Das in D-P2-13 vermerken, damit der Reviewer es nicht als vergessenen Test liest. API knapp halten: `choicePad.set(options, picked?)` setzt die Sperre zurück (mehrere Fragen, Wiedereinstieg), `namePicker` mit `data-cols=2` ab 5 Spielern, `counter` mit Test-ID `counter` + `aria-live`, `spotlight` setzt `data-spot="me"` am eigenen Element (nicht am Game-Root), `textEntry.set({error})` für späteres `view.reject`. Alle Knöpfe ≥ `--tap-min`.
+- **`drive(page, act)`:** Schlüssel `state|step|role`, „gesehen“-Menge je Aufruf (A→B→A löst A nicht erneut aus). Polling `raf`, `timeout` explizit (30 s wie die anderen Bots). Er beginnt mit dem aktuellen Zustand und endet, wenn kein `[data-screen=game]` mehr da ist. Ein Fehler in `act` wird geschluckt, wenn der Root weg ist (auch „Execution context destroyed“), sonst weitergeworfen. Fixture-Fälle: Folge mit `step`- und `role`-Wechsel → genau ein `act` je Tripel, Wiederkehr eines Tripels → kein zweites, Root entfernt → Rückkehr, `act` wirft nach dem Entfernen → geschluckt, `act` wirft bei vorhandenem Root → Fehler.
+- **`match.ts`:** zuerst `normalize('NFC')`, dann klein, ä/ö/ü/ß → ae/oe/ue/ss, restliche Akzente per NFD + `\p{M}` entfernen (é → e), dann alles außer `[a-z0-9]` weg. `levenshtein` arbeitet auf Codepoints (`Array.from`). Fälle: `'Ä'`, NFD-`'ä'`, `'Straße'`, Emoji, leere Strings, Symmetrie.
+- **Lint-Fixtures:** müssen melden „Ex“, „Sexualität“, umlaut-randige Muster, Zusatzliste nur mit `forbid`. Dürfen nicht melden „Experiment“, „Extrawurst“, „Europäische Union“, „erstes Date“.
+- **duo.spec:** Host + 1 Gast (`joinByCode`), `only=<id>&rounds=1&seed=SEED`, `btn-start` ohne Rundenwahl, beide `playRound` parallel, danach auf beiden das Podium. Daten nur aus `watch.ts` lesen, kein `expect`-Polling auf kurzen Phasen. Stabilität einmal mit `npx playwright test e2e/duo.spec.ts --repeat-each=3` belegen (nur diese Datei, Dauer ins Review).
+- **S1-Lehren:** (1) Seed-Verdrahtung aus `app.ts:165–166` als reine Funktion herausziehen und unit-testen (MINOR aus S1). (7) duo.spec prüft Tint und Timer-Farbe für alle 4 Altspiele. (2)/(3) `badDrinks`-Obergrenze und `first`-allein-Prüfung bleiben in S3 beim ersten Spiel mit `drinks`.
+- **Vorwarnung S3 (nicht hier lösen):** `games/purity.test.ts` verbietet `/\bDate\b/` in allen Spieldateien, auch in Banken. „erstes Date“ (P2: „Frech heißt … Dates“) fällt dann durch. Die erste Bank braucht einen Purity-Check, der String-Literale ausblendet, mit Selbsttest. Sonst fliegt der Inhalt raus.
+- **TDD:** Red-Commit mit `match`-, `bankcheck`-, Seed-Helfer- und `drive`-Fixture-Tests, die Zusammenfassung kommt in den Body. duo.spec sichert vorhandenes Verhalten ab und ist sofort grün, das im Commit vermerken.
+
+## 3. Dateien (nur Nicht-Offensichtliches)
+`e2e/contract.ts` (neu, `LABEL`/`CONTRACT`), `e2e/drive.spec.ts` (neu, Fixture), `e2e/helpers.ts` (`cssColor`), `e2e/games.spec.ts` + `e2e/drink.spec.ts` (Importe), `src/games/schaetzfuchs/questions.test.ts`, `src/config.ts(+test)` + `src/app.ts` (Seed-Helfer).
+
+## 4. DoD
+siehe Rückgabe (`dod`).
+
+## 5. Out-of-Scope
+Neue Spiele, `strokeCanvas`, `Played.picks`, Layout-Audit der Bausteine (S3), Purity-Anpassung für Banken (S3), Conformance-(c)-Obergrenze/D-P2-5-Prüfung (S3), 3-Spieler-Duo-Fälle, `party2`/`drink`-Ausbau (S12).
