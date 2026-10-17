@@ -89,6 +89,8 @@
   --podium-h: 220px;
   --hammer-d: min(60vw, 34dvh, 240px);
   --ff-grid-h: 36dvh;
+  --balloon-d: min(62vw, 28dvh, 240px);
+  --ring-d: min(60vw, 28dvh, 240px);
 
   --font-display: 'Bricolage Grotesque Variable', 'Archivo Black', system-ui, sans-serif;
   --font-text: 'Space Grotesk Variable', system-ui, sans-serif;

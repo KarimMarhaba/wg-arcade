@@ -12,6 +12,12 @@ export const GK_ASK = 7000;
 export const GK_REVEAL = 3000;
 export const WW_VOTE = 10000;
 export const WW_REVEAL = 4000;
+export const BOMBE = 45000;
+export const BOMBE_SHOW = 900;
+export const STOPP_LEAD = 1500;
+export const STOPP_BLIND = 3000;
+export const STOPP_LATE = 5000;
+export const STOPP_REVEAL = 3000;
 
 export const BLITZ_MAX = 1000;
 export const GRACE = 1500;

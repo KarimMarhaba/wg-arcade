@@ -688,3 +688,220 @@
     animation: none;
   }
 }
+
+.bombe-live {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  padding: 0;
+  list-style: none;
+}
+
+.live-item,
+.live-syms {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.live-sym {
+  font-size: var(--fs-s);
+  line-height: 1;
+}
+
+.bombe-pts {
+  font-size: var(--fs-xl);
+  line-height: 0.9;
+  text-align: center;
+}
+
+.bombe-stage {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  overflow: clip;
+}
+
+.balloon {
+  width: var(--balloon-d);
+  height: calc(var(--balloon-d) * 1.15);
+  background: var(--orange);
+  border: var(--bw) solid var(--line);
+  border-radius: 50% 50% 48% 48% / 45% 45% 55% 55%;
+  box-shadow: var(--sh);
+  transform: scale(calc(0.3 + 0.7 * var(--g, 0)));
+  transition: transform var(--d-fast) var(--ease-snap);
+}
+
+.balloon[data-state='cashed'] {
+  background: var(--ok);
+}
+
+.balloon[data-state='popped'] {
+  background: var(--bad);
+  animation: bang var(--d-pop) var(--ease-out) forwards;
+}
+
+.bombe-btns {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--s3);
+}
+
+.bombe-btn,
+.stopp-btn {
+  min-height: calc(var(--tap-l) * 1.25);
+  font-family: var(--font-display);
+  font-size: var(--fs-l);
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--on-accent);
+  background: var(--hot);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+  box-shadow: var(--sh-sm);
+  touch-action: manipulation;
+}
+
+.bombe-btn[data-kind='cash'] {
+  background: var(--lime);
+}
+
+.bombe-btn:active,
+.stopp-btn:active {
+  box-shadow: var(--sh-press);
+}
+
+.bombe-btn:disabled {
+  opacity: var(--dim-offline);
+  box-shadow: none;
+}
+
+.stopp-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s4);
+  min-height: 0;
+  min-width: 0;
+}
+
+.stopp-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+}
+
+.stopp-face {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+}
+
+.stopp-ring {
+  display: grid;
+  place-items: center;
+  width: var(--ring-d);
+  aspect-ratio: 1;
+  border: calc(var(--bw) * 2) solid var(--lime);
+  border-radius: var(--rpill);
+}
+
+.stopp-clock {
+  font-size: var(--fs-xxl);
+  line-height: 0.9;
+}
+
+.stopp-hint {
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.frame[data-state='ready'] .stopp-ring {
+  border-color: var(--ink-dim);
+}
+
+.frame[data-state='blind'] .stopp-clock {
+  visibility: hidden;
+}
+
+.frame[data-state='blind'] .stopp-ring {
+  animation: pulse calc(var(--d-slow) * 3) ease-in-out infinite;
+}
+
+.frame[data-state='sent'] .stopp-ring,
+.frame[data-state='late'] .stopp-ring {
+  border-color: var(--ink-dim);
+  border-style: dashed;
+}
+
+.stopp-btn[data-state='sent'],
+.stopp-btn[data-state='late'] {
+  visibility: hidden;
+}
+
+.frame[data-game='stopp']:not([data-state='reveal']) .game-bar {
+  visibility: hidden;
+}
+
+.stopp-scale {
+  display: grid;
+  gap: var(--s2);
+  padding: 0;
+  list-style: none;
+}
+
+.stopp-lane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9ch;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.lane-track {
+  position: relative;
+  height: calc(var(--badge-m) + var(--s1));
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+}
+
+.lane-track::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: var(--bw);
+  background: var(--lime);
+  transform: translateX(-50%);
+}
+
+.lane-dot {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--x) * 100%);
+  transform: translate(-50%, -50%);
+}
+
+.stopp-lane[data-me='true'] .lane-track {
+  border-color: var(--lime);
+}
+
+.lane-val {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-align: right;
+}
+
+.stopp-duo {
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  text-align: center;
+}

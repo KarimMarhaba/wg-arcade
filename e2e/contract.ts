@@ -21,7 +21,7 @@ export const CONTRACT: Record<Id, string[]> = {
   schaetzfuchs: ['ask', 'reveal', 'sent'],
   gleichklang: ['ask', 'reveal', 'sent'],
   werwuerde: ['reveal', 'sent', 'vote'],
-  bombe: ['cashed', 'done', 'popped', 'pump'],
+  bombe: ['cashed', 'popped', 'pump'],
   stopp: ['blind', 'ready', 'reveal', 'run', 'sent'],
 };
 

@@ -48,6 +48,7 @@ const stopp = (k: number, sent: boolean): Extract<StoppView, { phase: 'run' }> =
   of: 3,
   target: 700,
   lead: 150,
+  blind: 300,
   startAt: STARTS,
   endsAt: STARTS + 1_200,
   dur: 1_350,

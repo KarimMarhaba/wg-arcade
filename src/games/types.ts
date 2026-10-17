@@ -1,7 +1,7 @@
 import type { RawDrinks } from '../engine/drinks';
 import type { After, Every } from '../engine/types';
 
-export const GAME_IDS = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs', 'gleichklang', 'werwuerde'] as const;
+export const GAME_IDS = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs', 'gleichklang', 'werwuerde', 'bombe', 'stopp'] as const;
 export type GameId = (typeof GAME_IDS)[number];
 
 export interface PlayerRef {

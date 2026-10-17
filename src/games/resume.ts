@@ -1,7 +1,9 @@
 import type { BlitzView } from './blitz/logic';
+import type { BombeView } from './bombe/logic';
 import type { FarbfalleView } from './farbfalle/logic';
 import type { HammerView } from './hammer/logic';
 import type { SchaetzfuchsView } from './schaetzfuchs/logic';
+import type { StoppView } from './stopp/logic';
 
 type ToLocal = (hostT: number) => number;
 
@@ -26,4 +28,14 @@ export function resumeFarbfalle(v: FarbfalleView, mountedAt: number, toLocal: To
 
 export function resumeSchaetzfuchs(v: Extract<SchaetzfuchsView, { phase: 'ask' }>, mountedAt: number, toLocal: ToLocal) {
   return { end: endOf(v.myGuess !== null, mountedAt, v.dur, v.endsAt, toLocal), guess: v.myGuess };
+}
+
+export function resumeBombe(v: BombeView, mountedAt: number, toLocal: ToLocal) {
+  const resumed = v.mine.res.length > 0 || v.mine.n > 0;
+  return { end: endOf(resumed, mountedAt, v.dur, v.endsAt, toLocal), b: v.mine.b, n: v.mine.n };
+}
+
+export function resumeStopp(v: Extract<StoppView, { phase: 'run' }>, mountedAt: number, toLocal: ToLocal) {
+  const resumed = v.sent || v.k > 0;
+  return { start: resumed ? toLocal(v.startAt) : mountedAt + v.lead, sent: v.sent };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STOPP_LATE, STOPP_LEAD, STOPP_REVEAL, scale } from '../../engine/durations';
+import { STOPP_BLIND, STOPP_LATE, STOPP_LEAD, STOPP_REVEAL, scale } from '../../engine/durations';
 import { duoLine, fmtSec, stopp, STOPP_CAP, STOPP_MISS, STOPP_TRIES, type StoppState, type StoppView } from './logic';
 
 type Run = Extract<StoppView, { phase: 'run' }>;
@@ -58,6 +58,7 @@ describe('stopp init und Ziele', () => {
       const s = make(3, 3, speed);
       const v = run(s);
       expect(v.lead).toBe(scale(STOPP_LEAD, speed));
+      expect(v.blind).toBe(scale(STOPP_BLIND, speed));
       expect(v.startAt).toBe(NOW + scale(STOPP_LEAD, speed));
       expect(v.endsAt).toBe(v.startAt + v.target + scale(STOPP_LATE, speed));
       expect(v.dur).toBe(v.endsAt - NOW);
@@ -67,7 +68,7 @@ describe('stopp init und Ziele', () => {
 
   it('die Sicht der Laufphase hat genau die vorgesehenen Felder', () => {
     expect(Object.keys(run(make())).sort()).toEqual(
-      ['dur', 'endsAt', 'got', 'k', 'lead', 'of', 'phase', 'sent', 'startAt', 'target', 'total'].sort(),
+      ['blind', 'dur', 'endsAt', 'got', 'k', 'lead', 'of', 'phase', 'sent', 'startAt', 'target', 'total'].sort(),
     );
   });
 });
