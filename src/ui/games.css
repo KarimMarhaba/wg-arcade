@@ -420,3 +420,152 @@
   border: var(--bw) solid var(--line);
   border-radius: var(--r1);
 }
+
+.name-picker,
+.choice-pad {
+  display: grid;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.name-picker[data-cols='2'],
+.choice-pad[data-cols='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.name-picker .btn,
+.choice-pad .btn {
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 0 var(--s3);
+  font-size: var(--fs-m);
+  text-align: left;
+}
+
+.name-picker .btn[aria-pressed='true'] {
+  --btn-bg: var(--hot);
+  --btn-fg: var(--on-accent);
+}
+
+.pick-name,
+.choice-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.choice-pad .btn:disabled[aria-pressed='false'] {
+  opacity: var(--dim-offline);
+}
+
+.choice-done {
+  margin-left: auto;
+  font-size: var(--fs-s);
+}
+
+.text-entry {
+  display: grid;
+  gap: var(--s3);
+}
+
+.text-input {
+  min-height: var(--tap-min);
+  min-width: 0;
+  font-size: var(--fs-m);
+}
+
+.text-error {
+  font-weight: 700;
+  color: var(--bad);
+}
+
+.text-error:empty {
+  display: none;
+}
+
+.spotlight {
+  display: grid;
+  justify-items: center;
+  gap: var(--s4);
+  padding: var(--s5);
+  text-align: center;
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r2);
+}
+
+.spotlight[data-spot='me'] {
+  background: var(--bg-3);
+  border-color: var(--hot);
+  box-shadow: var(--sh);
+}
+
+.spot-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.counter {
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.vote-bars {
+  display: grid;
+  gap: var(--s3);
+  padding: 0;
+  list-style: none;
+}
+
+.vote-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+}
+
+.vote-bar[data-me='true'] .vote-label {
+  color: var(--hot);
+}
+
+.vote-label {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.vote-count {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.vote-track {
+  grid-column: 1 / -1;
+  height: var(--bar-h);
+  overflow: hidden;
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+}
+
+.vote-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--lime);
+  transform: scaleX(var(--share, 0));
+  transform-origin: left;
+  transition: transform var(--d-slow) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vote-fill {
+    transition: none;
+  }
+}

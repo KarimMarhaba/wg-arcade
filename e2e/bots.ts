@@ -80,19 +80,53 @@ export async function playFarbfalle(page: Page): Promise<Played> {
   return { game: 'farbfalle', taps: n, wrong };
 }
 
+export interface Tuple {
+  state: string;
+  step?: string;
+  role?: string;
+}
+
+const keyOf = (t: Tuple): string => `${t.state}|${t.step ?? ''}|${t.role ?? ''}`;
+
+export async function drive(page: Page, act: (t: Tuple) => Promise<void>): Promise<void> {
+  const seen = new Set<string>();
+  const gone = (): Promise<boolean> =>
+    page.evaluate(() => !document.querySelector('[data-screen=game]')).catch(() => true);
+  for (;;) {
+    const next = await page.waitForFunction(
+      (done) => {
+        const root = document.querySelector('[data-screen=game]');
+        if (!root) return 'gone';
+        const t = {
+          state: root.getAttribute('data-state') ?? '',
+          step: root.getAttribute('data-step') ?? undefined,
+          role: root.getAttribute('data-role') ?? undefined,
+        };
+        return done.includes(`${t.state}|${t.step ?? ''}|${t.role ?? ''}`) ? false : t;
+      },
+      [...seen],
+      { polling: 'raf', timeout: 30_000 },
+    );
+    const t = (await next.jsonValue()) as Tuple | 'gone';
+    if (t === 'gone') return;
+    seen.add(keyOf(t));
+    try {
+      await act(t);
+    } catch (e) {
+      if (await gone()) return;
+      throw e;
+    }
+  }
+}
+
 export async function playSchaetzfuchs(page: Page, o: { enter?: boolean; guess?: number } = {}): Promise<Played> {
-  const asking = await page.waitForFunction(() => {
-    const root = document.querySelector('[data-screen=game]');
-    if (!root) return 'gone';
-    const state = root.getAttribute('data-state');
-    if (state === 'ask' && root.querySelector('[data-testid=sf-input]')) return 'ask';
-    return state === 'sent' || state === 'reveal' ? 'late' : false;
+  await drive(page, async (t) => {
+    if (t.state !== 'ask') return;
+    const input = page.getByTestId('sf-input');
+    await input.fill(String(o.guess ?? 100));
+    if (o.enter) await input.press('Enter');
+    else await page.getByTestId('sf-submit').click();
   });
-  if ((await asking.jsonValue()) !== 'ask') return { game: 'schaetzfuchs' };
-  const input = page.getByTestId('sf-input');
-  await input.fill(String(o.guess ?? 100));
-  if (o.enter) await input.press('Enter');
-  else await page.getByTestId('sf-submit').click();
   return { game: 'schaetzfuchs' };
 }
 

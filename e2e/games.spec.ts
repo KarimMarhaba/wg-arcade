@@ -1,24 +1,10 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { gameGone, playRound, type Played } from './bots';
+import { CONTRACT, LABEL, type Id } from './contract';
 import { audit, openHost, screen, tid, type Run } from './helpers';
 import { WATCH_GAMES, type RoundRec } from './watch';
 
-type Id = 'blitz' | 'hammer' | 'farbfalle' | 'schaetzfuchs';
-const IDS: Id[] = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs'];
-
-const LABEL: Record<Id, RegExp> = {
-  blitz: /^\d+ ms$/,
-  hammer: /^\d+ Taps?$/,
-  farbfalle: /^[+−]?\d+$/,
-  schaetzfuchs: /^±\d+ %$/,
-};
-
-const CONTRACT: Record<Id, string[]> = {
-  blitz: ['done', 'early', 'go', 'show', 'wait'],
-  hammer: ['done', 'play'],
-  farbfalle: ['done', 'play'],
-  schaetzfuchs: ['ask', 'reveal', 'sent'],
-};
+const IDS = Object.keys(LABEL) as Id[];
 
 const digits = (s: string | null): string => (s ?? '').replace(/\D/g, '');
 

@@ -1,7 +1,7 @@
 import { joinUrl, parseFlags } from './config';
 import { createHost } from './engine/host';
 import { createEngine } from './engine/party';
-import { mulberry32, randomSeed } from './engine/prng';
+import { hostSeeds, randomSeed } from './engine/prng';
 import type { After, Every } from './engine/types';
 import type { Sfx } from './games/types';
 import { gamesFor } from './games/index';
@@ -157,13 +157,14 @@ export function startApp(root: HTMLElement): void {
     const my = epoch;
     neutral('Party wird erstellt …');
     try {
+      const { seed, rand } = hostSeeds(flags.seed, randomSeed);
       const host = await createHost({
         transport: await getTransport(),
         engine: createEngine(gamesFor(flags.only)),
         now: () => performance.now(),
         every,
-        seed: flags.seed ?? randomSeed(),
-        rand: mulberry32(flags.seed === undefined ? randomSeed() : flags.seed + 1),
+        seed,
+        rand,
         dev: flags.dev,
         speed: flags.speed,
         hostPid: pid,

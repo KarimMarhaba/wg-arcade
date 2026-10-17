@@ -1,21 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { gameGone, playRound } from './bots';
-import { joinByCode, openHost, screen, tid } from './helpers';
+import { cssColor, joinByCode, openHost, screen, tid } from './helpers';
 import { rec as readRec, WATCH_GAMES, type Rec } from './watch';
 
 const RUN = { only: 'hammer', rounds: 1, seed: 424242 };
 const ME_TAKE = 'TRINK 1';
 const ME_OUT = 'Du bist raus aus der Nummer 😎';
-
-const cssColor = (page: Page, token: string): Promise<string> =>
-  page.evaluate((t) => {
-    const probe = document.createElement('div');
-    probe.style.background = `var(${t})`;
-    document.body.append(probe);
-    const c = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    return c;
-  }, token);
 
 async function oneRound(host: Page, pages: Page[]): Promise<void> {
   await playRound(host);

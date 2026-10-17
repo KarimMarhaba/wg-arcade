@@ -41,3 +41,7 @@ export function shuffle<T>(r: Rng, xs: readonly T[]): T[] {
 export function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] as number;
 }
+
+export function hostSeeds(seed: number | undefined, random: () => number): { seed: number; rand: Rng } {
+  return seed === undefined ? { seed: random(), rand: mulberry32(random()) } : { seed, rand: mulberry32(seed + 1) };
+}

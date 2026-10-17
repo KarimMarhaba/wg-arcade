@@ -129,3 +129,13 @@ export async function audit(page: Page, name: string, shot: string = name): Prom
   );
   await page.screenshot({ path: `${SHOTS}/${shot}.png` });
 }
+
+export const cssColor = (page: Page, token: string): Promise<string> =>
+  page.evaluate((t) => {
+    const probe = document.createElement('div');
+    probe.style.background = `var(${t})`;
+    document.body.append(probe);
+    const c = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return c;
+  }, token);
