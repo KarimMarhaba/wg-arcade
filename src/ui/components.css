@@ -693,3 +693,66 @@
 .party-body {
   height: 100%;
 }
+
+.btn.drink-toggle[aria-pressed='true'] {
+  --btn-bg: var(--warn);
+  --btn-fg: var(--on-accent);
+}
+
+.drink-status {
+  padding: var(--s3) var(--s4);
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-align: center;
+  color: var(--on-accent);
+  background: var(--warn);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+  box-shadow: var(--sh-sm);
+}
+
+.drink-status[hidden] {
+  display: none;
+}
+
+.drink-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+.drink-hint .panel {
+  width: 100%;
+  max-width: var(--maxw);
+}
+
+.drink-hint-text {
+  font-size: var(--fs-m);
+  font-weight: 700;
+}
+
+.drink-strip {
+  text-align: center;
+}
+
+.drink-me .take {
+  color: var(--bad);
+}
+
+.drink-me .give {
+  color: var(--ok);
+}
+
+.drink-line {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.drink-line[hidden] {
+  display: none;
+}

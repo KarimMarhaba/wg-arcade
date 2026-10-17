@@ -2,19 +2,19 @@
   min-height: 0;
 }
 
-.frame[data-game='blitz'] .timer-fill {
+.frame[data-tint='lime'] .timer-fill {
   background: var(--lime);
 }
 
-.frame[data-game='hammer'] .timer-fill {
+.frame[data-tint='hot'] .timer-fill {
   background: var(--hot);
 }
 
-.frame[data-game='farbfalle'] .timer-fill {
+.frame[data-tint='cyan'] .timer-fill {
   background: var(--cyan);
 }
 
-.frame[data-game='schaetzfuchs'] .timer-fill {
+.frame[data-tint='orange'] .timer-fill {
   background: var(--orange);
 }
 

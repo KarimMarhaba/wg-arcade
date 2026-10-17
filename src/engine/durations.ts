@@ -1,5 +1,6 @@
 export const INTRO = 3000;
 export const RESULT = 5000;
+export const DRINK_EXTRA = 2000;
 export const BLITZ_WAIT_MIN = 1500;
 export const BLITZ_WAIT_MAX = 4000;
 export const BLITZ_SHOW = 900;

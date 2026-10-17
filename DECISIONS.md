@@ -182,3 +182,35 @@ koenigskarte, busfahrer, wahrpflicht, kartoffel); Bau-Wahrheit `docs/design/pake
 Warum: Karim wünscht mehr, kreativere Spiele, klassische Trinkspiele und 2-Spieler-Partys. Auswahl per Ideen-Workflow
 (5 unabhängige Ideengeber, 3 Juroren, Synthese); bisher fast nur Reaktionsspiele, der Raum (Reden, Bluffen) war ungenutzt.
 Trinkmodus optional mit Leitplanken (Wasser zählt, Passen okay, max. 3 Schlücke/Runde).
+
+## 2026-10-17 — D-P2-1: Trink-Hinweis client-seitig, je Party-Code, blockiert nichts
+Was: Das Overlay `drink-hint` (`role=dialog`, `aria-modal`, Knopf `btn-drink-ok`) hängt auf Wrap-Ebene in `ui/screens/party.ts` und übersteht Screen-Wechsel. Es erscheint, sobald eine Sicht `drinking: true` trägt und `sessionStorage['wgarcade.drinkhint.<code>']` fehlt; „Verstanden“ setzt den Schlüssel (zusätzlich ein In-Memory-Set, falls Storage wirft). Den Zugriff reicht `app.ts` als `store` (das geschützte `session`-Objekt) in `PartyProps`. Das Overlay trägt kein `data-screen`, damit `audit()` („genau 1 `[data-screen]`“) gilt.
+Warum: Pro Party (Code) einmal je Handy, Nachzügler und Reloads verhalten sich richtig, und die Engine wartet nie auf Handys.
+
+## 2026-10-17 — D-P2-2: `drinking` überlebt „Nochmal“ und „Neue Party“
+Was: `again` und `lobby` lassen `Party.drinking` unverändert; der Schalter `{a:'drinking', on}` wirkt nur in der Lobby, ein gleicher Wert gibt dieselbe Referenz. `init` bekommt `{ speed, drinking }`.
+Warum: Der Trinkmodus ist eine Entscheidung des Abends, nicht einer Partie; wieder ausschalten geht in der Lobby.
+
+## 2026-10-17 — D-P2-3: Dev-Flags `seed` und `rounds`
+Was: `seed=<uint32>` und `rounds=<1..8>` gelten nur mit `dev=1`, ungültige Werte werden ignoriert (`config.ts`). `seed` fixiert Party-Seed, `rand = mulberry32(seed + 1)` damit auch Raumcode und Nochmal-Seeds; `rounds` geht über `HostOptions` an `engine.create` (`Party.rounds` ist `number`, die Lobby bietet weiter 3/5/8, die Aktion `rounds` bleibt auf 3/5/8 beschränkt). Beide Flags stehen bewusst nicht in `JOIN_KEYS`: `party.spec` verlangt die QR-URL mit genau `dev,fast,net`.
+Warum: Reproduzierbare und kurze E2E-Läufe (`only=hammer&rounds=1&seed=…`); `workers: 1` macht feste Raumcodes unproblematisch.
+
+## 2026-10-17 — D-P2-5: Teilnahme-Regel
+Was: Ein `result`-Eintrag entsteht erst mit der ersten angenommenen Eingabe (auch Rollen-Eingaben wie Karte wählen, „Fertig“, Stufe tippen); Seed-Default-Wahlen zählen nicht. Wer gar nichts tippt, ist Letzter mit 0 Punkten und Label `–`, auch wenn andere ihn gewählt haben. Die generalisierte Konformität prüft das für alle Spiele.
+Warum: Das bestraft Abwesenheit, nicht Pech; `rank` behandelt „kein Eintrag“ ohnehin als letzten Platz.
+
+## 2026-10-17 — D-P2-11: Spielakzent über `data-tint`, nicht `data-accent`
+Was: Der Game-Frame trägt `data-tint=<accent>`; die vier `data-game`-Timer-Regeln in `games.css` sind vier `data-tint`-Regeln (Farben unverändert: blitz lime, hammer hot, farbfalle cyan, schaetzfuchs orange). Es bleibt bei den vier Akzenten, sie wiederholen sich über die Spiele.
+Warum: `.frame[data-accent=…]` setzt `--accent-c`, und `.frame` hat `background: var(--accent-c)`; am Game-Frame würde der ganze Spiel-Screen eingefärbt (das Intro nutzt das bewusst vollflächig). Die E2E prüft Timer-Farbe gleich Akzent und Frame-Hintergrund ungleich Akzent.
+
+## 2026-10-17 — D-P2-12: `setState(state, {step, role})` als Bot- und E2E-Vertrag
+Was: `PlayCtx.setState(state, extra?)` setzt `data-state` sowie `data-step` und `data-role` am Game-Root; fehlt ein Schlüssel, wird das Attribut entfernt, damit nichts aus der Vorphase stehen bleibt. Es hat in Schritt 1 noch keinen Verbraucher, der Nachweis folgt mit dem ersten Mehrphasen-Spiel (S3).
+Warum: Mehrphasen- und Rollenspiele brauchen einen stabilen DOM-Vertrag für Bots, ohne dass Texte oder Layout geparst werden.
+
+## 2026-10-17 — D-P2-14: Trinkplan-Typ mit `cheers`, „alle gleich → Anstoßen“
+Was: `DrinkPlan = { rows: Record<pid, Drink>; cheers: boolean }`; `drinks?(s)` eines Spiels darf `DrinkPlan` oder `Record<pid, Drink>` liefern (Unterscheidung: `rows` ist ein Objekt und `cheers` ein Boolean, ein Record mit der pid „rows“ bleibt ein Record). `capDrinks` entfernt Offline und Unbekannte, rundet ab, kappt `take`/`give` auf 0..3 (NaN → 0), lässt Zeilen ohne Schluck weg und behält `cheers` nur ohne `take`. Die Platz-Regel (`placeDrinks`): Stehen alle Online-Teilnehmer auf demselben Platz (egal welchem), gibt es `cheers` und niemand trinkt; n ≤ 1 liefert einen leeren Plan ohne `cheers`. Vorletzt (n ≥ 5) ist der nächstkleinere Platz unter `last`, größer als 1. `RoundRecord.drinks` und die Result-Sicht tragen den gekappten Plan (Zeilen in Ergebnis-Reihenfolge, nur mit Schluck), die Ergebnisphase dauert nur mit Trinkmodus `scale(RESULT + DRINK_EXTRA)`.
+Warum: `rank` gibt Spielern ohne Eingabe den Platz `pids.length`; ein Leerlauf-Duo steht also beide auf Platz 2 und müsste nach dem bloßen Wortlaut je 1 trinken. P2 sagt aber „Zu zweit bei Gleichstand: beide stoßen an“, für 3+ ist die Regel die konsistente Fortsetzung (reversibel). Spiel-eigene `drinks` laufen durch dieselbe Kappung (Leitplanke: höchstens 3 Schlücke je Runde).
+
+## 2026-10-17 — Paket 2, Schritt 1: Messung E2E
+Was: `npm test` nach Schritt 1: 681 Unit-Tests (11 s) und 33 E2E-Tests in 4,5 min (vorher 32 Tests, 4,2 min). Neu ist `e2e/drink.spec.ts` (9 s). Ziel bleibt ≤ 9 min.
+Warum: Laufzeit-Budget des Master-Plans (§4.3) mitführen, jeder Spiel-Schritt erweitert die Suite.

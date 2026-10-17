@@ -6,9 +6,20 @@ export interface Flags {
   fast: boolean;
   speed: number;
   only: GameId | undefined;
+  seed: number | undefined;
+  rounds: number | undefined;
 }
 
 const isOn = (v: string | null): boolean => v !== null && v !== '0' && v !== 'false';
+
+const UINT32_MAX = 4294967295;
+const MAX_ROUNDS = 8;
+
+function uint(v: string | null, max: number, min = 0): number | undefined {
+  if (v === null || !/^\d+$/.test(v)) return undefined;
+  const n = Number(v);
+  return n >= min && n <= max ? n : undefined;
+}
 
 export function parseFlags(search: string): Flags {
   const q = new URLSearchParams(search);
@@ -21,6 +32,8 @@ export function parseFlags(search: string): Flags {
     fast,
     speed: fast ? 10 : 1,
     only: dev ? GAME_IDS.find((id) => id === only) : undefined,
+    seed: dev ? uint(q.get('seed'), UINT32_MAX) : undefined,
+    rounds: dev ? uint(q.get('rounds'), MAX_ROUNDS, 1) : undefined,
   };
 }
 

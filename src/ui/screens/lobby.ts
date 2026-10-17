@@ -1,3 +1,4 @@
+import type { Rounds } from '../../engine/types';
 import type { PlayerView, View } from '../../engine/view';
 import type { Mounted } from '../../games/types';
 import { button, codeBoxes, panel, playerBadge, screenFrame, segmented, shapeSvg, waitDots, type Segmented } from '../components';
@@ -39,7 +40,10 @@ export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mount
   const waitText = h('span', {});
   const hint = h('p', { class: 'note', 'aria-live': 'polite' });
   let start: HTMLButtonElement | undefined;
-  let rounds: Segmented<3 | 5 | 8> | undefined;
+  let rounds: Segmented<number> | undefined;
+  let drink: HTMLButtonElement | undefined;
+  let drinking = first.drinking;
+  const status = h('p', { class: 'drink-status', testid: 'drink-status', 'aria-live': 'polite', hidden: true }, '🍻 Trinkmodus an');
 
   const main: HTMLElement[] = [];
   const foot: HTMLElement[] = [];
@@ -52,7 +56,13 @@ export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mount
       },
       () => {},
     );
-    rounds = segmented(ROUNDS, first.rounds, (n) => control({ a: 'rounds', n }), { label: 'Runden', testid: (n) => `rounds-${n}` });
+    rounds = segmented<number>(ROUNDS, first.rounds, (n) => control({ a: 'rounds', n: n as Rounds }), {
+      label: 'Runden',
+      testid: (n) => `rounds-${n}`,
+    });
+    drink = button('🍻 TRINKMODUS', { variant: 'ghost', testid: 'btn-drink' });
+    drink.classList.add('drink-toggle');
+    sc.on(drink, 'click', () => control({ a: 'drinking', on: !drinking }));
     start = button("LOS GEHT'S", { size: 'l', testid: 'btn-start' });
     sc.on(start, 'click', () => control({ a: 'start' }));
     main.push(
@@ -61,6 +71,7 @@ export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mount
       list,
       h('p', { class: 'heading-row' }, 'RUNDEN'),
       rounds.el,
+      drink,
       h('p', { class: 'note' }, 'Host-Handy anlassen'),
     );
     foot.push(hint, start);
@@ -76,6 +87,7 @@ export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mount
       ),
       heading,
       list,
+      status,
       h('p', { class: 'note', 'aria-live': 'polite' }, waitText, waitDots()),
     );
   }
@@ -118,6 +130,9 @@ export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mount
 
     heading.textContent = `SPIELER ${v.players.length}/${MAX_PLAYERS}`;
     rounds?.set(v.rounds);
+    drinking = v.drinking;
+    drink?.setAttribute('aria-pressed', String(v.drinking));
+    status.hidden = !v.drinking;
     if (start) start.disabled = !v.canStart;
     hint.textContent = v.canStart ? '' : `Mindestens ${v.min} Spieler`;
     hint.hidden = v.canStart;

@@ -1,5 +1,6 @@
 import { GAME_IDS, type GameDef, type GameId } from '../games/types';
-import { INTRO, OFFLINE, RESULT, scale } from './durations';
+import { capDrinks, placeDrinks } from './drinks';
+import { DRINK_EXTRA, INTRO, OFFLINE, RESULT, scale } from './durations';
 import { mix32 } from './prng';
 import { planOrder } from './rounds';
 import { rank } from './scoring';
@@ -29,6 +30,10 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
     ...p,
     phase: { k: 'intro', r, until: now + scale(INTRO, p.speed) },
   });
+  const poolOf = (p: Party): GameId[] => {
+    const pool = ids.filter((id) => p.drinking || !def(id).drinkOnly);
+    return pool.length > 0 ? pool : ids;
+  };
   const resetTotals = (players: Player[]) => players.map((x) => ({ ...x, total: 0 }));
 
   function refresh(p: Party, now: number): Party {
@@ -44,18 +49,20 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
   function finishRound(p: Party, r: number, state: unknown, now: number): Party {
     const d = defAt(p, r);
     const pids = p.players.map((x) => x.pid);
-    const { places, points } = rank(d.result(state), pids, onlineSet(p));
+    const online = onlineSet(p);
+    const { places, points } = rank(d.result(state), pids, online);
     const record: RoundRecord = {
       gameId: d.id,
       places,
       points,
       labels: Object.fromEntries(pids.map((pid) => [pid, d.label(state, pid)])),
+      drinks: p.drinking ? capDrinks(d.drinks ? d.drinks(state) : placeDrinks(places, online), online) : null,
     };
     return {
       ...p,
       players: p.players.map((x) => ({ ...x, total: x.total + (points[x.pid] ?? 0) })),
       history: [...p.history, record],
-      phase: { k: 'result', r, until: now + scale(RESULT, p.speed) },
+      phase: { k: 'result', r, until: now + scale(RESULT + (p.drinking ? DRINK_EXTRA : 0), p.speed) },
     };
   }
 
@@ -69,7 +76,10 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
       case 'intro': {
         if (now < ph.until) return p;
         const players = p.players.map(({ pid, name, color }) => ({ pid, name, color }));
-        const state = defAt(p, ph.r).init(players, mix32(p.seed, ph.r), now, { speed: p.speed });
+        const state = defAt(p, ph.r).init(players, mix32(p.seed, ph.r), now, {
+          speed: p.speed,
+          drinking: p.drinking,
+        });
         return { ...p, phase: { k: 'play', r: ph.r, started: now, state } };
       }
       case 'play': {
@@ -132,14 +142,16 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
     switch (act.a) {
       case 'rounds':
         return k === 'lobby' && ROUNDS.includes(act.n) ? { ...p, rounds: act.n as Rounds } : p;
+      case 'drinking':
+        return k === 'lobby' && typeof act.on === 'boolean' && act.on !== p.drinking ? { ...p, drinking: act.on } : p;
       case 'start':
-        return canStart(p) ? intro({ ...p, order: planOrder(p.seed, p.rounds, ids) }, 0, now) : p;
+        return canStart(p) ? intro({ ...p, order: planOrder(p.seed, p.rounds, poolOf(p)) }, 0, now) : p;
       case 'next':
         return p.phase.k === 'result' ? afterResult(p, p.phase.r, now) : p;
       case 'again':
         if (k !== 'podium') return p;
         return intro(
-          { ...p, seed: act.seed, order: planOrder(act.seed, p.rounds, ids), history: [], players: resetTotals(p.players) },
+          { ...p, seed: act.seed, order: planOrder(act.seed, p.rounds, poolOf(p)), history: [], players: resetTotals(p.players) },
           0,
           now,
         );
@@ -165,7 +177,7 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
       total: x.total,
       host: x.pid === p.hostPid,
     }));
-    const base = { me: pid, isHost: pid === p.hostPid, code: p.code, players };
+    const base = { me: pid, isHost: pid === p.hostPid, code: p.code, players, drinking: p.drinking };
     const ph: Phase = p.phase;
     switch (ph.k) {
       case 'lobby':
@@ -197,6 +209,8 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
           total: x.total,
           label: rec?.labels[x.pid] ?? '–',
         }));
+        const ordered = sorted(rows);
+        const plan = rec?.drinks;
         return {
           ...base,
           s: 'result',
@@ -204,7 +218,16 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
           n: p.rounds,
           game: defAt(p, ph.r).id,
           until: ph.until,
-          rows: sorted(rows),
+          rows: ordered,
+          drinks: plan
+            ? {
+                rows: ordered.flatMap(({ pid: who }) => {
+                  const d = plan.rows[who];
+                  return d && (d.take > 0 || d.give > 0) ? [{ pid: who, take: d.take, give: d.give }] : [];
+                }),
+                cheers: plan.cheers,
+              }
+            : null,
         };
       }
       case 'podium': {
@@ -218,7 +241,7 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
     }
   }
 
-  function create(code: string, seed: number, hostPid: string, o: { dev: boolean; speed: number }): Party {
+  function create(code: string, seed: number, hostPid: string, o: { dev: boolean; speed: number; rounds?: number }): Party {
     return {
       code,
       seed,
@@ -226,7 +249,8 @@ export function createEngine(games: Record<string, GameDef<any, any, any>>) {
       dev: o.dev,
       speed: o.speed,
       players: [],
-      rounds: 5,
+      rounds: o.rounds ?? 5,
+      drinking: false,
       order: [],
       phase: { k: 'lobby' },
       history: [],

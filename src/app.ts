@@ -162,11 +162,12 @@ export function startApp(root: HTMLElement): void {
         engine: createEngine(gamesFor(flags.only)),
         now: () => performance.now(),
         every,
-        seed: randomSeed(),
-        rand: mulberry32(randomSeed()),
+        seed: flags.seed ?? randomSeed(),
+        rand: mulberry32(flags.seed === undefined ? randomSeed() : flags.seed + 1),
         dev: flags.dev,
         speed: flags.speed,
         hostPid: pid,
+        rounds: flags.rounds,
       });
       if (my !== epoch) {
         host.stop();
@@ -185,6 +186,7 @@ export function startApp(root: HTMLElement): void {
         const party = mountParty(slot, {
           session: sess,
           env,
+          store: session,
           onHome: () => go('#/'),
           onBadName: () => go('#/'),
         });
@@ -221,6 +223,7 @@ export function startApp(root: HTMLElement): void {
       const party = mountParty(slot, {
         session: sess,
         env,
+        store: session,
         onRejoin: () => go(`#/j/${code}`),
         onHome: () => {
           session.del(JOINED_KEY);

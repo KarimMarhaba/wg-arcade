@@ -1,3 +1,4 @@
+import type { RawDrinks } from '../engine/drinks';
 import type { After, Every } from '../engine/types';
 
 export const GAME_IDS = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs'] as const;
@@ -11,6 +12,7 @@ export interface PlayerRef {
 
 export interface GameCtx {
   speed: number;
+  drinking: boolean;
 }
 
 export interface GameDef<S, I, V> {
@@ -18,6 +20,7 @@ export interface GameDef<S, I, V> {
   title: string;
   rule: string;
   accent: 'lime' | 'hot' | 'cyan' | 'orange';
+  drinkOnly?: true;
   init(players: PlayerRef[], seed: number, now: number, ctx: GameCtx): S;
   parseInput(raw: unknown): I | null;
   input(s: S, pid: string, i: I, now: number): S;
@@ -25,6 +28,7 @@ export interface GameDef<S, I, V> {
   done(s: S, now: number): boolean;
   result(s: S): Map<string, number>;
   label(s: S, pid: string): string;
+  drinks?(s: S): RawDrinks;
   view(s: S, pid: string, now: number): V;
 }
 
@@ -70,7 +74,7 @@ export interface PlayerInfo {
 export interface PlayCtx extends ViewCtx {
   clock: Clock;
   players(): readonly PlayerInfo[];
-  setState(state: string): void;
+  setState(state: string, extra?: { step?: number; role?: string }): void;
   punch(): void;
 }
 

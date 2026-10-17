@@ -8,12 +8,14 @@ import { mountIntro } from './intro';
 import { mountLobby } from './lobby';
 import { mountLost, mountRejected } from './lost';
 import { mountPodium } from './podium';
+import { drinkHint } from './drinks';
 import { mountResult } from './result';
-import type { Env, Unmount } from './types';
+import type { Env, Store, Unmount } from './types';
 
 export interface PartyProps {
   session: ClientSession;
   env: Env;
+  store: Store;
   onRejoin?: () => void;
   onHome(): void;
   onBadName(): void;
@@ -47,6 +49,21 @@ export function mountParty(slot: HTMLElement, p: PartyProps): Unmount {
     } else banner.textContent = text;
   };
 
+  const acked = new Set<string>();
+  let hint: HTMLElement | undefined;
+  const hintKey = (code: string): string => `wgarcade.drinkhint.${code}`;
+
+  const syncHint = (v: View): void => {
+    if (hint || !v.drinking || acked.has(v.code) || p.store.get(hintKey(v.code)) !== null) return;
+    hint = drinkHint(() => {
+      acked.add(v.code);
+      p.store.set(hintKey(v.code), '1');
+      hint?.remove();
+      hint = undefined;
+    });
+    wrap.append(hint);
+  };
+
   const show = (key: string, make: () => Omit<Current, 'key'>): boolean => {
     if (cur?.key === key) return false;
     cur?.destroy();
@@ -62,6 +79,7 @@ export function mountParty(slot: HTMLElement, p: PartyProps): Unmount {
     });
 
   function dispatch(v: View): void {
+    syncHint(v);
     const fresh = show(keyOf(v), () => {
       switch (v.s) {
         case 'lobby':
@@ -111,6 +129,7 @@ export function mountParty(slot: HTMLElement, p: PartyProps): Unmount {
       off();
       cur?.destroy();
       cur = undefined;
+      hint = undefined;
       wrap.remove();
     },
   };

@@ -14,11 +14,12 @@ interface Base {
   isHost: boolean;
   code: string;
   players: PlayerView[];
+  drinking: boolean;
 }
 
 export type View = Base &
   (
-    | { s: 'lobby'; rounds: 3 | 5 | 8; canStart: boolean; min: number }
+    | { s: 'lobby'; rounds: number; canStart: boolean; min: number }
     | { s: 'intro'; r: number; n: number; game: GameId; title: string; rule: string; accent: string; until: number }
     | { s: 'game'; r: number; n: number; game: GameId; g: unknown }
     | {
@@ -28,6 +29,7 @@ export type View = Base &
         game: GameId;
         until: number;
         rows: { pid: string; place: number; points: number; total: number; label: string }[];
+        drinks: { rows: { pid: string; take: number; give: number }[]; cheers: boolean } | null;
       }
     | { s: 'podium'; rows: { pid: string; place: number; total: number }[] }
   );

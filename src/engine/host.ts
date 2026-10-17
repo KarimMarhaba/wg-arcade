@@ -20,6 +20,7 @@ export interface HostOptions {
   dev: boolean;
   speed: number;
   hostPid: string;
+  rounds?: number;
 }
 
 export interface Host {
@@ -42,7 +43,7 @@ async function openEndpoint(transport: Transport, rand: () => number): Promise<H
 export async function createHost(o: HostOptions): Promise<Host> {
   const { engine } = o;
   const endpoint = await openEndpoint(o.transport, o.rand);
-  let party = engine.create(endpoint.code, o.seed, o.hostPid, { dev: o.dev, speed: o.speed });
+  let party = engine.create(endpoint.code, o.seed, o.hostPid, { dev: o.dev, speed: o.speed, rounds: o.rounds });
   let stopped = false;
   const conns = new Set<Conn>();
   const pidOf = new Map<Conn, string>();

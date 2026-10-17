@@ -1,5 +1,6 @@
 import type { RejectReason } from '../net/protocol';
 import type { GameId } from '../games/types';
+import type { DrinkPlan } from './drinks';
 
 export interface Player {
   pid: string;
@@ -15,6 +16,7 @@ export interface RoundRecord {
   places: Record<string, number>;
   points: Record<string, number>;
   labels: Record<string, string>;
+  drinks: DrinkPlan | null;
 }
 
 export type Phase =
@@ -33,7 +35,8 @@ export interface Party {
   dev: boolean;
   speed: number;
   players: Player[];
-  rounds: Rounds;
+  rounds: number;
+  drinking: boolean;
   order: GameId[];
   phase: Phase;
   history: RoundRecord[];
@@ -41,6 +44,7 @@ export interface Party {
 
 export type HostAction =
   | { a: 'rounds'; n: Rounds }
+  | { a: 'drinking'; on: boolean }
   | { a: 'start' }
   | { a: 'next' }
   | { a: 'again'; seed: number }

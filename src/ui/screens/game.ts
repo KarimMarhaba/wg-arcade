@@ -26,7 +26,7 @@ export function mountGame(slot: HTMLElement, first: GameView, env: Env): Mounted
   const area = h('div', { class: 'game-area' });
   const frame = screenFrame({
     screen: 'game',
-    attrs: { 'data-game': first.game, 'data-state': 'play' },
+    attrs: { 'data-game': first.game, 'data-state': 'play', 'data-tint': GAMES[first.game].accent },
     head: [h('span', {}, `RUNDE ${first.r + 1}/${first.n} · ${GAMES[first.game].title}`), h('span', { class: 'code-small' }, first.code)],
     main: [bar, area],
   });
@@ -34,7 +34,13 @@ export function mountGame(slot: HTMLElement, first: GameView, env: Env): Mounted
     ...env.ctx,
     clock: realClock,
     players: () => players,
-    setState: (state) => frame.root.setAttribute('data-state', state),
+    setState(state, extra) {
+      frame.root.setAttribute('data-state', state);
+      for (const [attr, value] of [['data-step', extra?.step], ['data-role', extra?.role]] as const) {
+        if (value === undefined) frame.root.removeAttribute(attr);
+        else frame.root.setAttribute(attr, String(value));
+      }
+    },
     punch: () => env.ctx.fx.punch(frame.root),
   };
   let barKey: number | undefined;
