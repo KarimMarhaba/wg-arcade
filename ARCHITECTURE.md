@@ -15,6 +15,6 @@
 
 - `src/net/` Transport-Schnittstelle (`peer` | `local` BroadcastChannel), Protokoll v1, Raumcode.
 - `src/engine/` reiner Zustandsautomat: Lobby → Intro → Spiel → Ergebnis → … → Podium.
-- `src/games/<id>/` je Spiel `logic.ts` (rein, Host) + `view.ts` (DOM, Client).
+- `src/games/<id>/` je Spiel `logic.ts` (rein, Host), `play.ts` (reine lokale Zeitlinie, Uhr injiziert) und `view.ts` (DOM, Client); `src/games/resume.ts` = Wiedereinstieg (§4.3).
 - `src/ui/` Design-Tokens, Komponenten, Screens; `src/app.ts` Hash-Routing.
 - Details: `docs/design/design.md`.

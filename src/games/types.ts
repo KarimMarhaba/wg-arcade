@@ -1,3 +1,5 @@
+import type { After, Every } from '../engine/types';
+
 export const GAME_IDS = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs'] as const;
 export type GameId = (typeof GAME_IDS)[number];
 
@@ -52,9 +54,29 @@ export interface ViewCtx {
   reducedMotion: boolean;
 }
 
+export interface Clock {
+  now(): number;
+  after: After;
+  every: Every;
+}
+
+export interface PlayerInfo {
+  pid: string;
+  name: string;
+  color: number;
+  online: boolean;
+}
+
+export interface PlayCtx extends ViewCtx {
+  clock: Clock;
+  players(): readonly PlayerInfo[];
+  setState(state: string): void;
+  punch(): void;
+}
+
 export interface Mounted<V> {
   update(v: V): void;
   destroy(): void;
 }
 
-export type Render<V, I> = (root: HTMLElement, v: V, send: (p: I) => void, ctx: ViewCtx) => Mounted<V>;
+export type Render<V, I> = (root: HTMLElement, v: V, send: (p: I) => void, ctx: PlayCtx) => Mounted<V>;

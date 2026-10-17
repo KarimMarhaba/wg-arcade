@@ -13,7 +13,6 @@ export interface RoundOpts {
   guess?: number;
 }
 
-const GAME = '[data-screen=game]';
 const INKS = ['rot', 'blau', 'gelb', 'weiss'] as const;
 const WRONG_EVERY = 7;
 
@@ -21,9 +20,12 @@ const gameState = (page: Page): Promise<string | null> =>
   page.evaluate(() => document.querySelector('[data-screen=game]')?.getAttribute('data-state') ?? null);
 
 async function center(page: Page, testid: string): Promise<{ x: number; y: number }> {
-  const box = await page.getByTestId(testid).boundingBox();
-  if (!box) throw new Error(`keine Box: ${testid}`);
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const at = await page.evaluate((id) => {
+    const box = document.querySelector(`[data-testid=${id}]`)?.getBoundingClientRect();
+    return box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : null;
+  }, testid);
+  if (!at) throw new Error(`keine Box: ${testid}`);
+  return at;
 }
 
 export async function playBlitz(page: Page, o: { early?: boolean } = {}): Promise<Played> {
@@ -85,9 +87,8 @@ export async function playSchaetzfuchs(page: Page, o: { enter?: boolean; guess?:
 }
 
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
-  const root = page.locator(GAME);
-  await root.waitFor({ timeout: 30_000 });
-  const game = await root.getAttribute('data-game');
+  await page.waitForFunction(() => document.querySelector('[data-screen=game]'), null, { timeout: 30_000 });
+  const game = await page.evaluate(() => document.querySelector('[data-screen=game]')?.getAttribute('data-game'));
   switch (game) {
     case 'blitz':
       return playBlitz(page, o);
