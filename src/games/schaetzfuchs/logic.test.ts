@@ -24,7 +24,7 @@ const answerOf = (s: SchaetzfuchsState): number => {
   return hit.a;
 };
 const askEnd = (speed: number) => NOW + scale(20000, speed);
-const reveal = (s: SchaetzfuchsState, now = NOW + 10): SchaetzfuchsState => schaetzfuchs.tick(s, now, new Set());
+const reveal = (s: SchaetzfuchsState): SchaetzfuchsState => schaetzfuchs.tick(s, s.hardEnd, new Set());
 
 describe('schaetzfuchs Frage', () => {
   it('ist je Seed deterministisch und fuer alle gleich', () => {

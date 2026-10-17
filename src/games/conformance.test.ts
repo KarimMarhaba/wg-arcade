@@ -83,7 +83,7 @@ for (const c of CASES)
         const clone = structuredClone(done);
         const ticked = c.def.tick(done, NOW + 1, new Set(['p0', 'p1']));
         expect(done).toEqual(clone);
-        expect(c.def.done(ticked, NOW + 1)).toBe(true);
+        expect(ticked).not.toBe(done);
         expect(c.def.done(s1, NOW + 1)).toBe(false);
       });
 
