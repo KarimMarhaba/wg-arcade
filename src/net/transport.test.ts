@@ -7,7 +7,7 @@ vi.mock('./peer', () => {
   return { createPeerTransport: () => state.marker };
 });
 
-import { createTransport } from './transport';
+import { createTransport, lazyTransport, type Transport } from './transport';
 
 describe('createTransport', () => {
   it("'local' lädt ./peer nie", async () => {
@@ -28,5 +28,43 @@ describe('createTransport', () => {
     expect(src).not.toMatch(/^\s*import\s[^;]*?from\s*['"](\.\/peer|peerjs)['"]/m);
     expect(src).not.toMatch(/^\s*import\s*['"](\.\/peer|peerjs)['"]/m);
     expect(src).toMatch(/import\(\s*['"]\.\/peer['"]\s*\)/);
+  });
+});
+
+describe('lazyTransport', () => {
+  const fake = (): Transport => ({ host: () => Promise.reject(new Error('x')), join: () => Promise.reject(new Error('x')) });
+
+  it('baut einmal und gibt danach dieselbe Instanz zurück', async () => {
+    const t = fake();
+    const make = vi.fn(() => Promise.resolve(t));
+    const get = lazyTransport('local', make);
+    expect(make).not.toHaveBeenCalled();
+    const [a, b] = await Promise.all([get(), get()]);
+    expect(a).toBe(t);
+    expect(b).toBe(t);
+    expect(await get()).toBe(t);
+    expect(make).toHaveBeenCalledTimes(1);
+    expect(make).toHaveBeenCalledWith('local');
+  });
+
+  it('cacht einen fehlgeschlagenen Aufbau nicht: der nächste Aufruf baut neu', async () => {
+    const t = fake();
+    const make = vi.fn<(k: 'peer') => Promise<Transport>>().mockRejectedValueOnce(new Error('broker')).mockResolvedValue(t);
+    const get = lazyTransport('peer', make);
+    await expect(get()).rejects.toThrow('broker');
+    expect(await get()).toBe(t);
+    expect(await get()).toBe(t);
+    expect(make).toHaveBeenCalledTimes(2);
+  });
+
+  it('gleichzeitige Aufrufe teilen sich den fehlgeschlagenen Aufbau, danach wird neu gebaut', async () => {
+    const t = fake();
+    const make = vi.fn<(k: 'peer') => Promise<Transport>>().mockRejectedValueOnce(new Error('broker')).mockResolvedValue(t);
+    const get = lazyTransport('peer', make);
+    const results = await Promise.allSettled([get(), get()]);
+    expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected']);
+    expect(make).toHaveBeenCalledTimes(1);
+    expect(await get()).toBe(t);
+    expect(make).toHaveBeenCalledTimes(2);
   });
 });

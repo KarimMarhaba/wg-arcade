@@ -1,88 +1,10 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { gameGone, playRound, type Played } from './bots';
 import { audit, openHost, screen, tid, type Run } from './helpers';
+import { WATCH_GAMES, type RoundRec } from './watch';
 
 type Id = 'blitz' | 'hammer' | 'farbfalle' | 'schaetzfuchs';
 const IDS: Id[] = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs'];
-
-interface RoundRec {
-  game: string;
-  states: string[];
-  shown: string | null;
-  firstShown: string | null;
-  answer: string | null;
-}
-interface Rec {
-  rounds: RoundRec[];
-  results: { points: string | null; label: string }[][];
-  flashes: number;
-  punches: number;
-}
-
-declare global {
-  interface Window {
-    rec: Rec;
-  }
-}
-
-const WATCH_GAMES = (): void => {
-  const rec: Rec = { rounds: [], results: [], flashes: 0, punches: 0 };
-  window.rec = rec;
-  const ids = new WeakMap<Element, number>();
-  const seenResults = new WeakSet<Element>();
-  const roundOf = (root: HTMLElement): RoundRec => {
-    let i = ids.get(root);
-    if (i === undefined) {
-      i = rec.rounds.length;
-      ids.set(root, i);
-      rec.rounds.push({ game: root.dataset.game ?? '', states: [], shown: null, firstShown: null, answer: null });
-    }
-    return rec.rounds[i] as RoundRec;
-  };
-  const push = (round: RoundRec, s: string | null): void => {
-    if (s !== null && round.states.at(-1) !== s) round.states.push(s);
-  };
-  new MutationObserver((records) => {
-    for (const r of records) {
-      const t = r.target;
-      if (r.type === 'attributes' && r.attributeName === 'data-state' && t instanceof HTMLElement && t.dataset.screen === 'game')
-        push(roundOf(t), r.oldValue);
-      if (r.type === 'attributes' && r.attributeName === 'class' && t instanceof Element) {
-        const was = (r.oldValue ?? '').split(' ').includes('punch');
-        if (!was && t.classList.contains('punch')) rec.punches++;
-      }
-      for (const n of r.addedNodes) if (n instanceof Element && n.classList.contains('flash')) rec.flashes++;
-    }
-    const root = document.querySelector<HTMLElement>('[data-screen=game]');
-    if (root) {
-      const round = roundOf(root);
-      push(round, root.dataset.state ?? null);
-      const text = (id: string): string | null => root.querySelector(`[data-testid=${id}]`)?.textContent ?? null;
-      const shown = text('hammer-count') ?? text('ff-score') ?? text('sf-answer');
-      if (shown !== null) {
-        round.shown = shown;
-        if (root.dataset.state === 'reveal' && round.firstShown === null) round.firstShown = shown;
-      }
-      round.answer = root.querySelector('[data-testid=sf-reveal]')?.getAttribute('data-answer') ?? round.answer;
-    }
-    for (const res of document.querySelectorAll('[data-screen=result]')) {
-      if (seenResults.has(res)) continue;
-      seenResults.add(res);
-      rec.results.push(
-        [...res.querySelectorAll('[data-testid=result-row]')].map((row) => ({
-          points: row.getAttribute('data-points'),
-          label: row.querySelector('.label')?.textContent ?? '',
-        })),
-      );
-    }
-  }).observe(document, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeOldValue: true,
-    characterData: true,
-  });
-};
 
 const LABEL: Record<Id, RegExp> = {
   blitz: /^\d+ ms$/,

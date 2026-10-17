@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fakeClock } from '../../engine/fakeclock';
 import type { BlitzPhase, BlitzSend } from './play';
-import { createBlitzRun } from './play';
+import { createBlitzRun, record } from './play';
 
 const WAITS = [200, 300, 400];
 const SHOW = 90;
@@ -12,6 +12,7 @@ interface Ev {
   phase: BlitzPhase;
   i: number;
   ms: number | null;
+  filled?: readonly { i: number; ms: number }[];
 }
 
 function setup(o: { next?: number; end?: number } = {}) {
@@ -163,6 +164,30 @@ describe('Blitz-Zeitlinie', () => {
     expect(events.at(-1)?.phase).toBe('done');
     clock.advance(10_000);
     expect(sent).toHaveLength(3);
+  });
+
+  it('Ende mit offenen Versuchen: die Zeitlinie liefert die gesendeten 1000 an die Sicht, die Chips zeigen 1000', () => {
+    const { clock, events } = setup({ end: 500 });
+    const chips: (number | null)[] = [null, null, null];
+    for (const e of events) record(chips, e);
+    expect(chips).toEqual([null, null, null]);
+    clock.advance(500);
+    const last = events.at(-1);
+    expect(last?.phase).toBe('done');
+    expect(last?.filled).toEqual([{ i: 0, ms: MAX }, { i: 1, ms: MAX }, { i: 2, ms: MAX }]);
+    for (const e of events.slice(1)) record(chips, e);
+    expect(chips).toEqual([MAX, MAX, MAX]);
+  });
+
+  it('Ende nach einem Treffer: nur die offenen Versuche kommen als gesendet zurück', () => {
+    const { clock, events, run } = setup({ end: 600 });
+    clock.advance(250);
+    run.tap(clock.now());
+    clock.advance(1_000);
+    expect(events.at(-1)?.filled).toEqual([{ i: 1, ms: MAX }, { i: 2, ms: MAX }]);
+    const chips: (number | null)[] = [null, null, null];
+    for (const e of events) record(chips, e);
+    expect(chips).toEqual([50, MAX, MAX]);
   });
 
   it('das Ende überschreibt keinen schon gemeldeten Versuch', () => {

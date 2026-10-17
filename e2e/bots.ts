@@ -11,6 +11,7 @@ export interface RoundOpts {
   early?: boolean;
   enter?: boolean;
   guess?: number;
+  round?: number;
 }
 
 const INKS = ['rot', 'blau', 'gelb', 'weiss'] as const;
@@ -32,6 +33,7 @@ export async function playBlitz(page: Page, o: { early?: boolean } = {}): Promis
   const at = await center(page, 'blitz-pad');
   for (let i = 0; i < 3; i++) {
     if (i === 0 && o.early) {
+      await page.waitForFunction(() => document.querySelector('[data-screen=game]')?.getAttribute('data-state') === 'wait');
       await page.mouse.click(at.x, at.y);
       continue;
     }
@@ -79,6 +81,14 @@ export async function playFarbfalle(page: Page): Promise<Played> {
 }
 
 export async function playSchaetzfuchs(page: Page, o: { enter?: boolean; guess?: number } = {}): Promise<Played> {
+  const asking = await page.waitForFunction(() => {
+    const root = document.querySelector('[data-screen=game]');
+    if (!root) return 'gone';
+    const state = root.getAttribute('data-state');
+    if (state === 'ask' && root.querySelector('[data-testid=sf-input]')) return 'ask';
+    return state === 'sent' || state === 'reveal' ? 'late' : false;
+  });
+  if ((await asking.jsonValue()) !== 'ask') return { game: 'schaetzfuchs' };
   const input = page.getByTestId('sf-input');
   await input.fill(String(o.guess ?? 100));
   if (o.enter) await input.press('Enter');
@@ -87,7 +97,14 @@ export async function playSchaetzfuchs(page: Page, o: { enter?: boolean; guess?:
 }
 
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
-  await page.waitForFunction(() => document.querySelector('[data-screen=game]'), null, { timeout: 30_000 });
+  await page.waitForFunction(
+    (head) => {
+      const root = document.querySelector('[data-screen=game]');
+      return root !== null && (head === null || (root.querySelector('.frame-head')?.textContent ?? '').includes(head));
+    },
+    o.round === undefined ? null : `RUNDE ${o.round}/`,
+    { timeout: 30_000 },
+  );
   const game = await page.evaluate(() => document.querySelector('[data-screen=game]')?.getAttribute('data-game'));
   switch (game) {
     case 'blitz':
@@ -105,3 +122,32 @@ export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> 
 
 export const gameGone = (page: Page): Promise<unknown> =>
   page.waitForFunction(() => !document.querySelector('[data-screen=game]'), null, { timeout: 30_000 });
+
+export async function playToPodium(page: Page, o: RoundOpts = {}): Promise<number> {
+  let n = 0;
+  for (;;) {
+    const seen = await page.waitForFunction(
+      () => (document.querySelector('[data-screen=podium]') ? 'podium' : document.querySelector('[data-screen=game]') ? 'game' : false),
+      null,
+      { timeout: 60_000 },
+    );
+    if ((await seen.jsonValue()) === 'podium') return n;
+    try {
+      await playRound(page, o);
+    } catch (e) {
+      if (!(await page.evaluate(() => !document.querySelector('[data-screen=game]')))) throw e;
+    }
+    await gameGone(page);
+    n++;
+  }
+}
+
+export async function answerFarbfalle(page: Page, n: number): Promise<void> {
+  const spots = await Promise.all(INKS.map((ink) => center(page, `ff-${ink}`)));
+  for (let i = 0; i < n; i++) {
+    const ink = await page.evaluate(() => document.querySelector('[data-testid=ff-word]')?.getAttribute('data-ink') ?? null);
+    const spot = spots[INKS.indexOf(ink as (typeof INKS)[number])];
+    if (!spot) throw new Error(`keine Tinte: ${ink}`);
+    await page.mouse.click(spot.x, spot.y);
+  }
+}

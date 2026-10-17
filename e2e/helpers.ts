@@ -60,6 +60,20 @@ export async function joinByUrl(
   return page;
 }
 
+export async function joinByQr(
+  context: BrowserContext,
+  dataUrl: string,
+  name: string,
+  errors: string[] = [],
+): Promise<Page> {
+  const page = await context.newPage();
+  watchErrors(page, errors);
+  await page.goto(dataUrl);
+  await enterName(page, name);
+  await expect(screen(page, 'lobby')).toBeVisible();
+  return page;
+}
+
 export async function joinByCode(
   context: BrowserContext,
   code: string,
