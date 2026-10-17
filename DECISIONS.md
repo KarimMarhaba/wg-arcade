@@ -33,3 +33,7 @@ Warum: Die alten Hauptversionen laufen auf der Node-20-Laufzeit und sind veralte
 ## 2026-10-17 — `GAME_IDS` in `games/types.ts`
 Was: `src/games/types.ts` enthält `GAME_IDS` (as const) und `GameId`; `games/index.ts` re-exportiert später nur.
 Warum: `parseFlags` braucht die Ids für `only` schon in Schritt 1, ohne die Registry der Spiele zu importieren.
+
+## 2026-10-17 — D-1: `view`-Nachricht trägt `now`
+Was: `HostMsg` `view` enthält zusätzlich `now` (Host-Uhr beim Senden, endliche Zahl); `parseHost` verlangt es.
+Warum: Absolute Deadlines in der Sicht halten die Sicht zwischen den Ticks stabil (Diffing per JSON-String); der Client rechnet daraus seinen Uhr-Offset.
