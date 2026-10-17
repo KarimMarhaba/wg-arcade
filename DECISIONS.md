@@ -37,3 +37,15 @@ Warum: `parseFlags` braucht die Ids für `only` schon in Schritt 1, ohne die Reg
 ## 2026-10-17 — D-1: `view`-Nachricht trägt `now`
 Was: `HostMsg` `view` enthält zusätzlich `now` (Host-Uhr beim Senden, endliche Zahl); `parseHost` verlangt es.
 Warum: Absolute Deadlines in der Sicht halten die Sicht zwischen den Ticks stabil (Diffing per JSON-String); der Client rechnet daraus seinen Uhr-Offset.
+
+## 2026-10-17 — D-2: GameDef-Erweiterung
+Was: `GameDef` trägt zusätzlich `accent`, `parseInput` (Rohwert vom Draht → Eingabe oder `null`), `tick(s, now, online)` und `label`; `init` bekommt `ctx {speed}`. Die Engine reicht das Online-Set an `tick` weiter.
+Warum: fast-Skalierung, Eingaben vom Draht werden validiert, die Runde endet früh, sobald alle Online-Spieler fertig sind (Offline blockiert nicht), und die Ergebnis-Zeile zeigt den Rohwert (z. B. „742 ms“).
+
+## 2026-10-17 — D-5: Lobby entfernt Getrennte; „Neue Party“ = zurück in die Lobby mit neuem Seed
+Was: In der Lobby entfernen `disconnect` und Timeout (> 6000 ms) den Spieler samt Farbe; außerhalb der Lobby wird er nur offline. „Neue Party“ ist `{a:'lobby', seed}` (gleicher Code, Punkte 0, Offline-Spieler entfernt, Verbindungen bleiben). Die Laufzeit übergibt `randomSeed()`. Auch `again` bekommt einen neuen Seed.
+Warum: Freie Plätze und Farben in der Lobby. Ohne neuen Seed wären nach „Neue Party“ und `start` Spielreihenfolge und Runden-Seeds (Blitz-Wartezeiten, Schätzfuchs-Frage) identisch zur ersten Party.
+
+## 2026-10-17 — D-7: fast skaliert nur Spiel- und Phasendauern; `?only=<id>`
+Was: `speed` (10 mit dev + fast) teilt Phasen- und Spieldauern (`scale`), nicht Heartbeat (`PING`/`OFFLINE`/`TICK`), `GRACE` und `BLITZ_MAX`. Das dev-Flag `?only=<id>` beschränkt die Spiel-Registry auf ein Spiel; die Engine kennt es nicht, sie plant über `GAME_IDS` gefiltert nach der Registry (ein Spiel wird wiederholt).
+Warum: Netztoleranz bleibt real, Wertungswerte bleiben vergleichbar; gezielte E2E-Läufe pro Spiel.
