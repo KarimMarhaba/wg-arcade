@@ -130,6 +130,27 @@ export async function playSchaetzfuchs(page: Page, o: { enter?: boolean; guess?:
   return { game: 'schaetzfuchs' };
 }
 
+const firstBox = (page: Page, testid: string): Promise<{ x: number; y: number } | null> =>
+  center(page, testid).catch(() => null);
+
+async function pickFirst(page: Page, state: string, testid: string): Promise<void> {
+  await drive(page, async (t) => {
+    if (t.state !== state) return;
+    const at = await firstBox(page, testid);
+    if (at) await page.mouse.click(at.x, at.y);
+  });
+}
+
+export async function playGleichklang(page: Page): Promise<Played> {
+  await pickFirst(page, 'ask', 'choice');
+  return { game: 'gleichklang' };
+}
+
+export async function playWerwuerde(page: Page): Promise<Played> {
+  await pickFirst(page, 'vote', 'pick');
+  return { game: 'werwuerde' };
+}
+
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
   await page.waitForFunction(
     (head) => {
@@ -149,6 +170,10 @@ export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> 
       return playFarbfalle(page);
     case 'schaetzfuchs':
       return playSchaetzfuchs(page, o);
+    case 'gleichklang':
+      return playGleichklang(page);
+    case 'werwuerde':
+      return playWerwuerde(page);
     default:
       throw new Error(`unbekanntes Spiel: ${game}`);
   }

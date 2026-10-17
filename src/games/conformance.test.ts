@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { GRACE, TICK } from '../engine/durations';
-import { DRINK_CAP, type RawDrinks } from '../engine/drinks';
+import { DRINK_CAP, type DrinkPlan, type RawDrinks } from '../engine/drinks';
+import { isRecord } from './common';
 import { blitz } from './blitz/logic';
 import { farbfalle } from './farbfalle/logic';
+import { gleichklang } from './gleichklang/logic';
 import { hammer } from './hammer/logic';
 import { schaetzfuchs } from './schaetzfuchs/logic';
+import { werwuerde } from './werwuerde/logic';
 import type { GameDef } from './types';
 
 interface Case {
@@ -20,6 +23,8 @@ const CASES: Case[] = [
   { def: hammer, first: () => ({ n: 12, final: true }), finish: () => [{ n: 12, final: true }] },
   { def: farbfalle, first: () => ({ i: 0, c: 1 }), finish: () => [{ i: 0, c: 1 }, { done: true }] },
   { def: schaetzfuchs, first: () => ({ guess: 123456 }), finish: () => [{ guess: 123456 }] },
+  { def: gleichklang, first: () => ({ k: 0, i: 0, ms: 300 }), finish: () => [{ k: 0, i: 0, ms: 300 }] },
+  { def: werwuerde, first: () => ({ k: 0, to: 'p0' }), finish: () => [{ k: 0, to: 'p0' }] },
 ];
 
 const GARBAGE: unknown[] = [
@@ -71,8 +76,10 @@ function runToEnd(def: Case['def'], s0: unknown, t0: number, online: ReadonlySet
   return { s, t, done: def.done(s, t) };
 }
 
+const isPlan = (x: RawDrinks): x is DrinkPlan => isRecord(x.rows) && typeof x.cheers === 'boolean';
+
 function badDrinks(raw: RawDrinks, known: readonly string[]): string[] {
-  const rows = 'cheers' in raw && 'rows' in raw ? (raw as { rows: Record<string, unknown> }).rows : raw;
+  const rows = isPlan(raw) ? raw.rows : raw;
   const bad: string[] = [];
   for (const [pid, d] of Object.entries(rows as Record<string, { take: unknown; give: unknown }>)) {
     if (!known.includes(pid)) bad.push(`unbekannte pid ${pid}`);
@@ -140,6 +147,14 @@ for (const c of CASES)
         expect(c.def.label(s, 'zz')).toBe('–');
       });
 
+      it('die erste Eingabe allein erzeugt einen result-Eintrag (D-P2-5)', () => {
+        const { s: s0, now } = init();
+        const s = c.def.input(s0, 'p0', parsed(c.def, c.first(s0, 'p0')), now);
+        expect(c.def.result(s).has('p0')).toBe(true);
+        expect(c.def.result(s).has('p1')).toBe(false);
+        expect(c.def.label(s, 'p0')).not.toBe('–');
+      });
+
       it('Spieler ohne Eingabe: kein result-Eintrag, Label "–"', () => {
         const { s: s0, now } = init();
         const s = feed(c, s0, 'p0', now);
@@ -186,6 +201,16 @@ describe('Pruefung (c) badDrinks erkennt Verstoesse', () => {
     expect(badDrinks({ rows: { a: { take: 3, give: 2 } }, cheers: false }, known)).toEqual([]);
     expect(badDrinks({ rows: {}, cheers: true }, known)).toEqual([]);
     expect(DRINK_CAP).toBe(3);
+  });
+
+  it('die Plan-Erkennung folgt isPlan: rows als Objekt und cheers als Boolean', () => {
+    expect(badDrinks({ rows: { a: { take: 1, give: 0 } }, cheers: 'ja' } as unknown as RawDrinks, known).length).toBeGreaterThan(0);
+    expect(badDrinks({ rows: { a: { take: 1, give: 0 } } } as unknown as RawDrinks, known)).toContain('unbekannte pid rows');
+    expect(badDrinks({ rows: { take: 1, give: 0 } } as unknown as RawDrinks, known)).toHaveLength(1);
+  });
+
+  it('keine Obergrenze: ein roher Wert ueber DRINK_CAP ist kein Befund (die Engine kappt)', () => {
+    expect(badDrinks({ a: { take: DRINK_CAP + 1, give: 9 } }, known)).toEqual([]);
   });
 
   it('Befund bei unbekannter pid, Bruch, negativ, NaN', () => {

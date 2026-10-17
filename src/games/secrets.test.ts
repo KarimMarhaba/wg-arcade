@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { gleichklang } from './gleichklang/logic';
 import type { GameDef } from './types';
+import { werwuerde } from './werwuerde/logic';
 
 interface SecretCase<S = any> {
+  name?: string;
   def: GameDef<S, any, any>;
   setup(n: number): S;
   secrets(s: S, owner: string): string[];
@@ -51,7 +54,39 @@ function fixture(leak: boolean): SecretCase<FixState> {
   };
 }
 
-const SECRET_CASES: SecretCase[] = [];
+const players = (n: number) => pidsOf(n).map((pid, i) => ({ pid, name: pid.toUpperCase(), color: i }));
+const quoted = (pid: string) => `"${pid}"`;
+const start = <S>(def: GameDef<S, any, any>, n: number): S => def.init(players(n), 11, NOW, { speed: 1, drinking: false });
+
+function gleichklangQuestion(n: number) {
+  return pidsOf(n).reduce((s, pid) => {
+    const i = gleichklang.parseInput({ k: 0, i: 0, ms: 123 });
+    if (i === null) throw new Error('ungueltig');
+    return gleichklang.input(s, pid, i, NOW);
+  }, start(gleichklang, n));
+}
+
+function werwuerdeVote(n: number) {
+  return pidsOf(n).reduce((s, pid) => {
+    const i = werwuerde.parseInput({ k: 0, to: pid });
+    if (i === null) throw new Error('ungueltig');
+    return werwuerde.input(s, pid, i, NOW);
+  }, start(werwuerde, n));
+}
+
+const SECRET_CASES: SecretCase[] = [
+  { name: 'gleichklang Frage', def: gleichklang, setup: gleichklangQuestion, secrets: (_s, owner) => [quoted(owner)] },
+  { name: 'werwuerde Abstimmung', def: werwuerde, setup: werwuerdeVote, secrets: (_s, owner) => [quoted(owner)] },
+  {
+    name: 'werwuerde Aufloesung',
+    def: werwuerde,
+    setup: (n) => {
+      const s = werwuerdeVote(n);
+      return werwuerde.tick(s, s.endsAt, new Set(pidsOf(n)));
+    },
+    secrets: (_s, owner) => [`${quoted(owner)}:${quoted(owner)}`],
+  },
+];
 
 describe('leaks (Positiv- und Negativkontrolle)', () => {
   it('meldet für ein absichtlich leckendes Fixture Funde', () => {
@@ -78,7 +113,7 @@ describe('leaks (Positiv- und Negativkontrolle)', () => {
 });
 
 for (const c of SECRET_CASES)
-  describe(`${c.def.id}: Geheimnisse bleiben in view beim Besitzer`, () => {
+  describe(`${c.name ?? c.def.id}: Geheimnisse bleiben in view beim Besitzer`, () => {
     for (const n of [2, 3, 5, 8])
       it(`keine fremden Geheimnisse (n=${n})`, () => {
         expect(leaks(c, n)).toEqual([]);

@@ -82,6 +82,41 @@ describe('bankProblems: Verbots-Lint', () => {
   });
 });
 
+const CATEGORIES: Record<string, { hits: string[]; clean: string[] }> = {
+  Aussehen: {
+    hits: ['Wer ist hübscher?', 'Dein Aussehen', 'Wer ist dick?', 'Wer ist fett?', 'Eine neue Frisur', 'Wer ist attraktiver?', 'Dein Körper'],
+    clean: ['Ein Fettnäpfchen', 'Dicke Luft im Flur', 'Ein dicker Pullover', 'Die Fettpfanne'],
+  },
+  Herkunft: {
+    hits: ['Deine Herkunft', 'Ein Ausländer', 'Dein Akzent', 'Welche Nationalität?', 'Ein Migrant'],
+    clean: ['Woher kommt der Käse?', 'Die Wurzel des Wortes'],
+  },
+  Religion: {
+    hits: ['Deine Religion', 'Jeden Sonntag in die Kirche', 'Oh Gott', 'Ein Atheist', 'Der Islam', 'Die Bibel'],
+    clean: ['Götterspeise zum Nachtisch', 'Er ist ein Christbaum-Fan'],
+  },
+  Sexualität: {
+    hits: ['Deine Sexualität', 'Ist er hetero?', 'Ein Pornofilm', 'Nackt baden', 'Queer sein'],
+    clean: ['Homeoffice am Montag', 'Das erste Date', 'Ein Fettnäpfchen beim ersten Date'],
+  },
+  Alkohol: {
+    hits: ['Ein Glas Wein', 'Zu viel Alkohol', 'Der Kater am Morgen', 'Ein Shot Tequila', 'Wer ist betrunken?', 'Bier oder Wein?', 'Ein Cocktail', 'Ein Glühwein'],
+    clean: ['Weinen beim Film', 'Insekten im Bad', 'Eine Biene im Zimmer', 'Die Katze der WG', 'Der Sektor Nord'],
+  },
+};
+
+describe('bankProblems: erweiterte Standard-Verbotsliste', () => {
+  for (const [name, c] of Object.entries(CATEGORIES)) {
+    it(`${name}: jedes meldende Fixture wird gefunden`, () => {
+      for (const q of c.hits) expect(some(bankProblems([{ q }], opts()), 'Verbot'), q).toBe(true);
+    });
+
+    it(`${name}: saubere Fixtures bleiben ohne Befund`, () => {
+      for (const q of c.clean) expect(bankProblems([{ q }], opts()), q).toEqual([]);
+    });
+  }
+});
+
 describe('bankProblems: sauberes Fixture', () => {
   it('kein Fehlalarm bei Experiment, Extrawurst, Europäische Union, erstes Date', () => {
     const items = [
@@ -90,6 +125,9 @@ describe('bankProblems: sauberes Fixture', () => {
       { q: 'Die Europäische Union' },
       { q: 'Das erste Date' },
       { q: 'Exakt so' },
+      { q: 'Wer tritt in jedes Fettnäpfchen?' },
+      { q: 'Wo herrscht dicke Luft?' },
+      { q: 'Ein erstes Date im Kino' },
     ];
     expect(bankProblems(items, opts({ min: 5, forbid: ['geld', 'euro'] }))).toEqual([]);
   });

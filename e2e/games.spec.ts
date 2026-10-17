@@ -1,10 +1,10 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { gameGone, playRound, type Played } from './bots';
-import { CONTRACT, LABEL, type Id } from './contract';
+import { CONTRACT, LABEL, LEGACY } from './contract';
 import { audit, openHost, screen, tid, type Run } from './helpers';
 import { WATCH_GAMES, type RoundRec } from './watch';
 
-const IDS = Object.keys(LABEL) as Id[];
+const IDS = LEGACY;
 
 const digits = (s: string | null): string => (s ?? '').replace(/\D/g, '');
 

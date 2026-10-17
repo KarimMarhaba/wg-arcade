@@ -18,6 +18,15 @@ describe('Registry', () => {
     expect(Object.keys(GAMES).sort()).toEqual([...GAME_IDS].sort());
   });
 
+  it('gleichklang und werwuerde stehen in dieser Reihenfolge am Ende, Akzente cyan und hot', () => {
+    expect(GAME_IDS.slice(-2)).toEqual(['gleichklang', 'werwuerde']);
+    expect(GAME_IDS.slice(0, 4)).toEqual(['blitz', 'hammer', 'farbfalle', 'schaetzfuchs']);
+    expect(GAMES.gleichklang.accent).toBe('cyan');
+    expect(GAMES.werwuerde.accent).toBe('hot');
+    expect(typeof GAMES.werwuerde.drinks).toBe('function');
+    expect(GAMES.gleichklang.drinks).toBeUndefined();
+  });
+
   it('drinkOnly ist nur true oder fehlt, drinks nur eine Funktion oder fehlt', () => {
     for (const id of GAME_IDS) {
       expect([true, undefined]).toContain(GAMES[id].drinkOnly);
@@ -139,6 +148,8 @@ const WIRES: Record<GameId, Wire> = {
     const a = (QUESTIONS.find((x) => x.q === q) as { a: number }).a;
     return { host: [{ guess: a }], guest: [{ guess: a * 3 }] };
   },
+  gleichklang: () => ({ host: [{ k: 0, i: 0, ms: 100 }], guest: [{ k: 0, i: 0, ms: 900 }] }),
+  werwuerde: () => ({ host: [{ k: 0, to: HOST }], guest: [{ k: 0, to: HOST }] }),
 };
 
 describe('Integration: Draht-Payloads, besserer Spieler gewinnt', () => {
