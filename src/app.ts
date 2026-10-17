@@ -7,7 +7,7 @@ import type { Sfx } from './games/types';
 import { gamesFor } from './games/index';
 import { createClientSession } from './net/client';
 import { normalizeCode } from './net/code';
-import { createTransport } from './net/transport';
+import { lazyTransport } from './net/transport';
 import { neutralScreen } from './ui/components';
 import { clear } from './ui/dom';
 import { createFx } from './ui/fx';
@@ -71,8 +71,7 @@ export function startApp(root: HTMLElement): void {
   let hostIntent = false;
   let running: Unmount | undefined;
   let epoch = 0;
-  let transport: ReturnType<typeof createTransport> | undefined;
-  const getTransport = () => (transport ??= createTransport(flags.net));
+  const getTransport = lazyTransport(flags.net);
 
   const sound = createSfx();
   const sfx: Sfx = { ...sound, buzz: createBuzz({ vibrate: browserVibrate(), muted: () => sound.muted() }) };

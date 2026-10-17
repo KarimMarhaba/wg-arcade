@@ -1,7 +1,7 @@
 import type { View } from '../../engine/view';
 import { GAMES } from '../../games/index';
 import type { Mounted } from '../../games/types';
-import { button, playerBadge, scoreRow, screenFrame, timerBar } from '../components';
+import { button, playerBadge, scoreRow, screenFrame, syncOnline, timerBar } from '../components';
 import { createScope, h } from '../dom';
 import type { Env } from './types';
 
@@ -29,6 +29,7 @@ export function mountResult(slot: HTMLElement, first: ResultView, env: Env): Mou
 
   function update(v: View): void {
     if (v.s !== 'result') return;
+    syncOnline(list, v.players);
     head.textContent = `RUNDE ${v.r + 1}/${v.n} · ${GAMES[v.game].title}`;
     const key = JSON.stringify([v.rows, v.players.map((p) => [p.pid, p.name, p.color])]);
     if (key === shown) return;

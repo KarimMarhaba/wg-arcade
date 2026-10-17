@@ -44,8 +44,9 @@ export function mountLobby(slot: HTMLElement, first: LobbyView, env: Env): Mount
   const main: HTMLElement[] = [];
   const foot: HTMLElement[] = [];
   if (control) {
-    const qr = h('div', { class: 'qr', testid: 'qr', role: 'img', 'aria-label': 'QR-Code zum Beitreten' });
-    qrSvg(env.joinUrl(first.code)).then(
+    const joinUrl = env.joinUrl(first.code);
+    const qr = h('div', { class: 'qr', testid: 'qr', 'data-url': joinUrl, role: 'img', 'aria-label': 'QR-Code zum Beitreten' });
+    qrSvg(joinUrl).then(
       (svg) => {
         if (!dead) qr.innerHTML = svg;
       },

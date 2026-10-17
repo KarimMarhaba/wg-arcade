@@ -143,7 +143,8 @@ test('Offline: B schließt im Spiel, Party läuft bis zum Podium, Online-Wechsel
     const root = document.querySelector('[data-screen=podium]');
     if (root)
       new MutationObserver((rs) => {
-        for (const r of rs) w.adds += r.addedNodes.length + r.removedNodes.length;
+        for (const r of rs)
+          for (const n of [...r.addedNodes, ...r.removedNodes]) if (!(n instanceof Element && n.classList.contains('confetti'))) w.adds++;
       }).observe(root, { childList: true, subtree: true });
   }, pidA);
 

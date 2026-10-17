@@ -24,3 +24,14 @@ export async function createTransport(kind: NetKind): Promise<Transport> {
   if (kind === 'local') return createLocalTransport();
   return (await import('./peer')).createPeerTransport();
 }
+
+export function lazyTransport(kind: NetKind, make: (kind: NetKind) => Promise<Transport> = createTransport): () => Promise<Transport> {
+  let pending: Promise<Transport> | undefined;
+  return () => {
+    const cur = (pending ??= make(kind));
+    cur.catch(() => {
+      if (pending === cur) pending = undefined;
+    });
+    return cur;
+  };
+}

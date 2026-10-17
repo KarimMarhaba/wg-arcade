@@ -84,6 +84,14 @@ export function playerBadge(p: BadgePlayer, o: { size?: 's' | 'm' | 'l'; me?: bo
   );
 }
 
+export function syncOnline(root: ParentNode, players: readonly { pid: string; online: boolean }[]): void {
+  const online = new Map(players.map((p) => [p.pid, p.online]));
+  for (const b of root.querySelectorAll<HTMLElement>('.badge[data-pid]')) {
+    const on = online.get(b.dataset.pid ?? '');
+    if (on !== undefined && b.dataset.online !== String(on)) b.dataset.online = String(on);
+  }
+}
+
 export function codeBoxes(code: string): HTMLElement {
   return h(
     'p',

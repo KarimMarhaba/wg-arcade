@@ -1,6 +1,6 @@
 import type { View } from '../../engine/view';
 import type { Mounted } from '../../games/types';
-import { button, playerBadge, scoreRow, screenFrame, waitDots } from '../components';
+import { button, playerBadge, scoreRow, screenFrame, syncOnline, waitDots } from '../components';
 import { startConfetti } from '../confetti';
 import { createScope, h } from '../dom';
 import type { Env } from './types';
@@ -36,6 +36,7 @@ export function mountPodium(slot: HTMLElement, first: PodiumView, env: Env): Mou
 
   function update(v: View): void {
     if (v.s !== 'podium') return;
+    syncOnline(frame.root, v.players);
     const key = JSON.stringify([v.rows, v.players.map((p) => [p.pid, p.name, p.color])]);
     if (key === shown) return;
     const fresh = shown === undefined;

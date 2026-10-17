@@ -8,6 +8,12 @@ export interface BlitzEvent {
   phase: BlitzPhase;
   i: number;
   ms: number | null;
+  filled?: readonly { i: number; ms: number }[];
+}
+
+export function record(results: (number | null)[], e: BlitzEvent): void {
+  if (e.ms !== null) results[e.i] = e.ms;
+  for (const f of e.filled ?? []) results[f.i] = f.ms;
 }
 
 export interface BlitzRunOpts {
@@ -36,9 +42,9 @@ export function createBlitzRun(o: BlitzRunOpts): BlitzRun {
   let stopPhase: (() => void) | undefined;
   let stopEnd: (() => void) | undefined;
 
-  const emit = (p: BlitzPhase, ms: number | null = null): void => {
+  const emit = (p: BlitzPhase, ms: number | null = null, filled?: readonly { i: number; ms: number }[]): void => {
     phase = p;
-    o.onPhase({ phase: p, i, ms });
+    o.onPhase({ phase: p, i, ms, filled });
   };
   const later = (ms: number, fn: () => void): void => {
     stopPhase?.();
@@ -49,9 +55,9 @@ export function createBlitzRun(o: BlitzRunOpts): BlitzRun {
     stopEnd?.();
     stopPhase = stopEnd = undefined;
   };
-  const finish = (ms: number | null): void => {
+  const finish = (ms: number | null, filled?: readonly { i: number; ms: number }[]): void => {
     halt();
-    emit('done', ms);
+    emit('done', ms, filled);
   };
 
   function wait(): void {
@@ -78,9 +84,13 @@ export function createBlitzRun(o: BlitzRunOpts): BlitzRun {
   if (o.next > last) finish(null);
   else {
     stopEnd = clock.after(Math.max(0, o.end - clock.now()), () => {
-      for (let k = reported; k <= last; k++) o.send({ i: k, ms: max });
+      const filled: { i: number; ms: number }[] = [];
+      for (let k = reported; k <= last; k++) {
+        o.send({ i: k, ms: max });
+        filled.push({ i: k, ms: max });
+      }
       i = last;
-      finish(null);
+      finish(null, filled);
     });
     wait();
   }

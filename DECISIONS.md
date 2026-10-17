@@ -141,3 +141,36 @@ Warum: Ein Reload darf weder Zeit schenken noch kosten. Die Regel gehört in ein
 ## 2026-10-17 — games.spec: Auslegung
 Was: (1) Hammer und Farbfalle klicken per `page.mouse` auf die einmal gemessene Mitte (so oft wie möglich bis `done`), nicht 15× per Locator-Klick; (2) die E2E prüft das Host-Label gegen den in der View angezeigten Endstand (`hammer-count`, `ff-score`, `sf-answer`) statt gegen eine Bot-Zählung; (3) Ergebniszeilen, Spiel-Roots, `data-state`-Folgen (über `oldValue`), Flash-/Punch-Zähler und die Reveal-Anzeige protokolliert ein `MutationObserver` aus `addInitScript`, der nach dem Podium ausgewertet wird; die Bots warten per `waitForFunction`, nie per `expect` auf Zustände unter einer Sekunde; (4) das Layout läuft in eigenen Tests ohne `fast` (nur der erste Spiel-Screen, bei Schätzfuchs zusätzlich die Auflösung), `audit` lebt dafür in `e2e/helpers.ts` und prüft im Spiel-Root zusätzlich vertikales Scrollen; (5) die Frühstart-Runde ist Runde 2 des Blitz-Laufs.
 Warum: Mit `fast` dauert der Hammer 800 ms; `locator.click` wartet auf Stabilität (Enter-Animation 180 ms, `:active`-Transition) und verpasst das Fenster. `expect` pollt nach dem Backoff nur alle 500 ms, das Ergebnis steht 500 ms. Ein Label-Vergleich gegen die Anzeige beweist, dass jede lokal gezählte Eingabe beim Host ankam.
+
+## 2026-10-17 — QR trägt `data-url`, Beitritt per Link im E2E
+Was: Das QR-Element (`qr`) trägt die absolute Beitritts-URL als `data-url` (gleicher Origin, nur `net/dev/fast`, Hash `#/j/CODE`). `party.spec` tritt Client A über genau diese URL bei, Client B per Code-Eingabe.
+Warum: Der QR-Inhalt ist als SVG nicht lesbar; das Attribut macht den Pfad prüfbar, den ein Scan nimmt.
+
+## 2026-10-17 — Aufzeichnung statt Polling in party.spec und reconnect.spec
+Was: Ein gemeinsamer `MutationObserver` (`e2e/watch.ts`, per `addInitScript`) hält je Seite Runden, Ergebniszeilen (pid, Platz, Punkte, Total, Name, Farbe), Podien und Intro-Köpfe fest; geprüft wird nach dem Lauf. Die Bots warten per `waitForFunction` (raf), nie per `expect`. Die Punkteprüfung ist je Runde fest: Punkte = `[5,3,2,1][Platz−1]`, Plätze beginnen bei 1 und sind gleich dem Vorgänger (Gleichstand) oder gleich dem Index, Total = Vorrunde + Punkte, alle Seiten sehen identische Zeilen. Fällt ein Bot ohne Ergebnis aus, schlägt die Prüfung fehl (nicht aufweichen, Bot reparieren).
+Warum: Ergebnis (500 ms) und Intro (300 ms) sind mit `fast` kürzer als das Poll-Intervall von `expect`; nur eine Aufzeichnung sieht jeden Screen und prüft Reihenfolge und Werte lückenlos.
+
+## 2026-10-17 — Kein-Duplikat-Prüfung über die Host-Aufzeichnung
+Was: Dass ein Reload keinen zweiten Spieler erzeugt, beweist `reconnect.spec` über die Host-Aufzeichnung: jede Ergebnisliste und das Podium haben genau 2 Zeilen mit 2 verschiedenen pids, und pid, Name und Farbe des Clients bleiben gleich. Die Aufzeichnung der neu geladenen Seite wird nicht benutzt.
+Warum: Die Test-ID `player` gibt es nur in der Lobby; ein Reload setzt `window.rec` der Seite zurück. Der Host sieht alle Spieler in jeder Runde.
+
+## 2026-10-17 — `only=hammer` für den Offline-Test
+Was: Der Test „B schließt“ läuft mit `only=hammer` und `fast`. Der Host markiert B erst über den Timeout (`OFFLINE` 6 s, der Local-Client sendet kein `fin`): 4 bis 6,1 s nach dem Schließen, gemessen als `data-online=false` an `.badge[data-pid=B]` in höchstens 8 s. Danach hat B in jeder weiteren Runde Platz 3 und 0 Punkte.
+Warum: Nur der Hammer-Balken zeigt während des Spiels Badges (Farbfalle und Intro zeigen keine); 8 Runden halten die Party lange genug über dem Timeout.
+
+## 2026-10-17 — Online-Wechsel in place auf Ergebnis und Podium
+Was: `syncOnline(root, players)` (`ui/components.ts`) setzt `data-online` der vorhandenen Badges; Ergebnis- und Podium-Screen rufen es bei jedem `update` auf, bevor der Schlüssel (Zeilen, Namen, Farben) über einen Neuaufbau entscheidet. `online` bleibt bewusst aus dem Schlüssel. Der E2E-Beweis am Podium: markierte Zeile und Badge bleiben, kein Knoten kommt hinzu oder fällt weg (das Konfetti-Canvas ausgenommen, das sich selbst entfernt).
+Warum: Wegen `online` im Schlüssel hätte jeder Wechsel Zeilen neu gebaut und die Einblend-Animation erneut gespielt (bzw. ohne `online` veralten die Badges, Schritt-6-MINOR).
+
+## 2026-10-17 — `getTransport` cacht keinen Fehlschlag
+Was: `lazyTransport(kind, make?)` in `net/transport.ts` baut den Transport beim ersten Aufruf, teilt das laufende Versprechen zwischen gleichzeitigen Aufrufen und verwirft es bei einer Rejection; der nächste Aufruf baut neu. `app.ts` nutzt es als `getTransport`.
+Warum: Vorher blieb ein fehlgeschlagener Aufbau (z. B. Broker nicht erreichbar) dauerhaft im Cache; „Neu beitreten“ lädt die Seite nicht neu und scheiterte dann immer wieder.
+
+## 2026-10-17 — Blitz-Ende liefert die gesendeten 1000 an die Sicht
+Was: Läuft die lokale Zeit mit offenen Versuchen ab, trägt das letzte `done`-Event `filled` (die mit 1000 gesendeten Versuche); `record(results, e)` in `games/blitz/play.ts` schreibt sie in die Chips. Die Zahl der Versuche in der Sicht kommt aus `v.waits.length` statt einer Konstante.
+Warum: Die Chips zeigten „–“, obwohl der Host 1000 hatte (Schritt-7-MINOR). Die Zuordnung steht in einer reinen, getesteten Funktion.
+
+## 2026-10-17 — Schätzfuchs: Antwortgröße nach Zeichenzahl
+Was: Die Auflösung zeigt die Antwort in Mega bis 5 Zeichen (inkl. Tausenderpunkte), bis 8 Zeichen in XXL, darüber in XL (`MEGA_CHARS`/`XXL_CHARS` in `schaetzfuchs/view.ts`). Abweichung von §5 „Mega-Größe“.
+Warum: Antworten wie „299.792.458“ liefen in Mega über die 390 px Breite; kleiner statt abgeschnitten bleibt lesbar.
+

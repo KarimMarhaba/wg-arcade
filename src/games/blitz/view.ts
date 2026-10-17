@@ -3,9 +3,8 @@ import { h } from '../../ui/dom';
 import { resumeBlitz } from '../resume';
 import type { Render } from '../types';
 import type { BlitzView } from './logic';
-import { createBlitzRun, type BlitzEvent, type BlitzSend } from './play';
+import { createBlitzRun, record, type BlitzEvent, type BlitzSend } from './play';
 
-const TRIES = 3;
 const STAMP_TOLERANCE = 1000;
 
 export const renderBlitz: Render<BlitzView, BlitzSend> = (root, v, send, ctx) => {
@@ -35,7 +34,7 @@ export const renderBlitz: Render<BlitzView, BlitzSend> = (root, v, send, ctx) =>
           'li',
           { class: 'strip-item', 'data-pid': p.pid },
           playerBadge(p, { size: 's', me: p.pid === ctx.me }),
-          h('span', { class: 'strip-n' }, `${p.pid === ctx.me ? Math.max(taken, progress[p.pid] ?? 0) : (progress[p.pid] ?? 0)}/${TRIES}`),
+          h('span', { class: 'strip-n' }, `${p.pid === ctx.me ? Math.max(taken, progress[p.pid] ?? 0) : (progress[p.pid] ?? 0)}/${v.waits.length}`),
         ),
       ),
     );
@@ -43,10 +42,10 @@ export const renderBlitz: Render<BlitzView, BlitzSend> = (root, v, send, ctx) =>
 
   const onPhase = (e: BlitzEvent): void => {
     const shown = e.phase === 'show' || e.phase === 'done';
-    if (e.ms !== null) results[e.i] = e.ms;
+    record(results, e);
     pad.setAttribute('data-state', e.phase);
     ctx.setState(e.phase);
-    tryEl.textContent = `VERSUCH ${e.i + 1}/${TRIES}`;
+    tryEl.textContent = `VERSUCH ${e.i + 1}/${v.waits.length}`;
     label.textContent =
       e.phase === 'go' ? 'JETZT!' : e.phase === 'early' ? 'ZU FRÜH!' : shown && e.ms !== null ? String(e.ms) : e.phase === 'wait' ? 'WARTE …' : 'FERTIG';
     unit.textContent = e.phase === 'early' ? `${e.ms} ms` : shown && e.ms !== null ? (e.phase === 'done' ? 'ms · FERTIG' : 'ms') : '';
