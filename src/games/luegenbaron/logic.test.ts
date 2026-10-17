@@ -331,7 +331,7 @@ describe('luegenbaron Aufloesung und Wertung', () => {
     const s = reveal(s0, { [a]: true, [b]: false }, 4);
     expect(pts(s, a)).toBe(0);
     expect(pts(s, b)).toBe(1);
-    expect(pts(s, narrator(s))).toBeUndefined();
+    expect(pts(s, narrator(s))).toBe(1);
     expect(pts(s, c)).toBeUndefined();
   });
 

@@ -3,9 +3,11 @@ import { renderBombe } from './bombe/view';
 import { renderFarbfalle } from './farbfalle/view';
 import { renderGleichklang } from './gleichklang/view';
 import { renderHammer } from './hammer/view';
+import { renderLuegenbaron } from './luegenbaron/view';
 import { renderSchaetzfuchs } from './schaetzfuchs/view';
 import { renderStopp } from './stopp/view';
 import type { GameId, Mounted, Render } from './types';
+import { renderVerraeter } from './verraeter/view';
 import { renderWerwuerde } from './werwuerde/view';
 
 export const VIEWS: Partial<Record<GameId, Render<any, any>>> = {
@@ -17,6 +19,8 @@ export const VIEWS: Partial<Record<GameId, Render<any, any>>> = {
   werwuerde: renderWerwuerde,
   bombe: renderBombe,
   stopp: renderStopp,
+  luegenbaron: renderLuegenbaron,
+  verraeter: renderVerraeter,
 };
 
 export const fallbackRender: Render<unknown, unknown> = (root) => {

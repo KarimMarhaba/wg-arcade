@@ -257,8 +257,11 @@ test.describe('Layout ohne fast, zwei Seiten', () => {
     await expect(tid(lis, 'choice').first()).toBeVisible();
     await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-luegenbaron-vote-${k}`)));
 
-    await tid(lis, 'choice').first().click();
-    await expect(screen(lis, 'game')).toHaveAttribute('data-state', 'sent');
+    const stateAfterTap = await lis.evaluate(() => {
+      document.querySelector<HTMLElement>('[data-testid=choice]')?.click();
+      return document.querySelector('[data-screen=game]')?.getAttribute('data-state');
+    });
+    expect(stateAfterTap).toBe('sent');
     await audit(lis, 'game', 'duo-luegenbaron-sent');
 
     for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'reveal');
@@ -336,7 +339,8 @@ test('verraeter: drei Spieler, Rollen vor dem Start gelesen, die Crew stimmt geg
       await p.waitForFunction(() => document.querySelector('[data-screen=game]')?.hasAttribute('data-role'));
       return p.evaluate(() => ({
         role: document.querySelector('[data-screen=game]')?.getAttribute('data-role') ?? '',
-        word: document.querySelector('[data-testid=vr-word]')?.textContent ?? null,
+        card: document.querySelector('[data-testid=vr-word]')?.textContent ?? null,
+        word: document.querySelector('[data-testid=vr-text]')?.textContent ?? null,
       }));
     }),
   );
@@ -346,7 +350,11 @@ test('verraeter: drei Spieler, Rollen vor dem Start gelesen, die Crew stimmt geg
   const traitor = roles.indexOf('traitor');
   const crew = seen.filter((_, k) => k !== traitor);
   expect(crew[0]?.word).toBeTruthy();
-  expect(crew[0]?.word).toBe(crew[1]?.word);
+  expect(crew[0]?.card).toBe(crew[1]?.card);
+  expect(crew[0]?.card).toContain(crew[0]?.word);
+  expect(seen[traitor]?.card).toBeTruthy();
+  expect(seen[traitor]?.card).not.toBe(crew[0]?.card);
+  expect(seen[traitor]?.card).not.toContain(crew[0]?.word ?? '');
   expect(seen[traitor]?.word).toBeNull();
 
   const played = await Promise.all(pages.map((p) => playRound(p, { accuse: names[traitor] })));

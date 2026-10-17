@@ -18,6 +18,17 @@ export const STOPP_LEAD = 1500;
 export const STOPP_BLIND = 3000;
 export const STOPP_LATE = 5000;
 export const STOPP_REVEAL = 3000;
+export const LB_CARD = 8000;
+export const LB_TELL = 30000;
+export const LB_VOTE = 8000;
+export const LB_REVEAL = 4000;
+export const VR_WORD = 6000;
+export const VR_TURN = 5000;
+export const VR_TALK = 15000;
+export const VR_VOTE = 12000;
+export const VR_GUESS = 10000;
+export const VR_REVEAL = 4000;
+export const VR_DUO_TURN = 6000;
 
 export const BLITZ_MAX = 1000;
 export const GRACE = 1500;
