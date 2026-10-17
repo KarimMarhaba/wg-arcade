@@ -1,6 +1,7 @@
 # ROADMAP — WG·ARCADE
 
 ## Jetzt
+- Spielepaket 2 + Trinkmodus nach `docs/design/paket2.md` (hew-Run `paket2`), pAIme-Projekt #350.
 - MVP erledigt (hew-Run `mvp`, Schritte 1–8): vier Spiele, Lobby, QR-Beitritt, Reconnect, Podium, Design-System, E2E-Komplettparty.
 - Nächster Schritt: **WG-Test** zu dritt mit echten Handys (iOS + Android) über GitHub Pages; Lag, Verbindungsabbrüche und Lesbarkeit notieren.
 

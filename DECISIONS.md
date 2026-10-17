@@ -174,3 +174,11 @@ Warum: Die Chips zeigten „–“, obwohl der Host 1000 hatte (Schritt-7-MINOR)
 Was: Die Auflösung zeigt die Antwort in Mega bis 5 Zeichen (inkl. Tausenderpunkte), bis 8 Zeichen in XXL, darüber in XL (`MEGA_CHARS`/`XXL_CHARS` in `schaetzfuchs/view.ts`). Abweichung von §5 „Mega-Größe“.
 Warum: Antworten wie „299.792.458“ liefen in Mega über die 390 px Breite; kleiner statt abgeschnitten bleibt lesbar.
 
+
+## 2026-10-17 — Spielepaket 2 + Trinkmodus
+Was: 10 neue Spiele (gleichklang, werwuerde, bombe, stopp, luegenbaron, verraeter, pokerface, erklaerbaer, blindmaler,
+fakefakt) und ein optionaler Trinkmodus (Lobby-Schalter, Default aus) mit 5 klassischen Trinkspielen (nochnie,
+koenigskarte, busfahrer, wahrpflicht, kartoffel); Bau-Wahrheit `docs/design/paket2.md`. Rundenlänge 20–90 s. Alles ab 2 Spielern.
+Warum: Karim wünscht mehr, kreativere Spiele, klassische Trinkspiele und 2-Spieler-Partys. Auswahl per Ideen-Workflow
+(5 unabhängige Ideengeber, 3 Juroren, Synthese); bisher fast nur Reaktionsspiele, der Raum (Reden, Bluffen) war ungenutzt.
+Trinkmodus optional mit Leitplanken (Wasser zählt, Passen okay, max. 3 Schlücke/Runde).

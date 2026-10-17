@@ -9,6 +9,7 @@ Karim antwortet auf Deutsch, programmiert nicht selbst, mag es lean; keine Erkl�
 
 ## Projektgedächtnis (Index)
 - `docs/design/design.md` — Bau-Wahrheit (Netz, Ablauf, Spiele, Design-System, Tests, Deploy).
+- `docs/design/paket2.md` — Spielepaket 2 + Trinkmodus (ergänzt design.md).
 - `VISION.md` — wofür es das gibt, Nicht-Ziele.
 - `ARCHITECTURE.md` — Bausteine und Datenfluss.
 - `ROADMAP.md` — Stand, nächste Schritte, offene Fragen.

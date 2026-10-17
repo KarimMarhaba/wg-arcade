@@ -9,7 +9,7 @@ lintCmd: "npm run lint"
 tdd: true
 docCmd: ""
 planAgentType: planner
-planPrefix: mvp-
+planPrefix: paket2-
 modelLadder:
   plan: opus
   build: sonnet
@@ -22,7 +22,7 @@ effortLadder:
   review: xhigh
   fix: high
 branchStrategy: worktree
-guardrails: ["docs/design/design.md", ".claude/plans/master-plan.md"]
+guardrails: ["docs/design/design.md", "docs/design/paket2.md", ".claude/plans/master-plan.md", ".claude/plans/paket2-master-plan.md"]
 ---
 
 ## Conventions
