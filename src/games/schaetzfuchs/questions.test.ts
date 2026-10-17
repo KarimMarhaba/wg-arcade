@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { bankProblems } from '../bankcheck';
 import { QUESTIONS } from './questions';
 
 describe('Fragenbank', () => {
@@ -24,5 +25,17 @@ describe('Fragenbank', () => {
       expect(x.q).not.toContain(String(x.a));
       expect(x.unit).not.toContain(String(x.a));
     }
+  });
+
+  it('bankProblems findet nichts (Frage <= 90, Einheit <= 18 Zeichen)', () => {
+    expect(
+      bankProblems(QUESTIONS, {
+        min: 40,
+        text: (x) => [
+          [x.q, 90],
+          [x.unit, 18],
+        ],
+      }),
+    ).toEqual([]);
   });
 });

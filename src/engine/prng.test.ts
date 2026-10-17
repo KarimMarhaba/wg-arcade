@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { int, mix32, mulberry32, pick, randomSeed, shuffle } from './prng';
+import { newCode } from '../net/code';
+import { hostSeeds, int, mix32, mulberry32, pick, randomSeed, shuffle } from './prng';
 
 const isUint32 = (n: number) => Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
 
@@ -100,5 +101,43 @@ describe('randomSeed', () => {
     }) as never);
     expect(randomSeed()).toBe(0xdeadbeef);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('hostSeeds', () => {
+  const seq = (...xs: number[]) => {
+    let i = 0;
+    return () => xs[i++ % xs.length] as number;
+  };
+  const take = (r: () => number, n: number) => Array.from({ length: n }, r);
+
+  it('gleicher dev-seed ergibt gleichen Party-Seed, gleiche rand-Folge und gleichen Raumcode', () => {
+    const a = hostSeeds(31337, seq(1));
+    const b = hostSeeds(31337, seq(2, 3));
+    expect(a.seed).toBe(31337);
+    expect(b.seed).toBe(31337);
+    expect(take(a.rand, 20)).toEqual(take(b.rand, 20));
+    expect(newCode(hostSeeds(31337, seq(1)).rand)).toBe(newCode(hostSeeds(31337, seq(9)).rand));
+  });
+
+  it('rand ist mulberry32(seed + 1)', () => {
+    expect(take(hostSeeds(7, seq(1)).rand, 5)).toEqual(take(mulberry32(8), 5));
+  });
+
+  it('ohne seed stammen Party-Seed und rand aus dem injizierten Zufall', () => {
+    const a = hostSeeds(undefined, seq(111, 222));
+    expect(a.seed).toBe(111);
+    expect(take(a.rand, 5)).toEqual(take(mulberry32(222), 5));
+  });
+
+  it('seed 0 gilt als gesetzt', () => {
+    expect(hostSeeds(0, seq(5)).seed).toBe(0);
+  });
+
+  it('seed=4294967295 wirft nicht', () => {
+    const { seed, rand } = hostSeeds(4294967295, seq(1));
+    expect(seed).toBe(4294967295);
+    expect(() => take(rand, 10)).not.toThrow();
+    expect(take(rand, 10).every((x) => x >= 0 && x < 1)).toBe(true);
   });
 });
