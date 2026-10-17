@@ -454,8 +454,15 @@
   text-overflow: ellipsis;
 }
 
-.choice-pad .btn:disabled[aria-pressed='false'] {
+.choice-pad .btn:disabled[aria-pressed='false'],
+.name-picker .btn:disabled[aria-pressed='false'] {
   opacity: var(--dim-offline);
+}
+
+.choice-pad .btn:disabled[aria-pressed='true'],
+.name-picker .btn:disabled[aria-pressed='true'] {
+  --btn-fg: var(--on-accent);
+  background: var(--btn-bg);
 }
 
 .choice-done {
@@ -567,5 +574,117 @@
 @media (prefers-reduced-motion: reduce) {
   .vote-fill {
     transition: none;
+  }
+}
+
+.q-text {
+  font-family: var(--font-display);
+  font-size: var(--fs-l);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.gk-stage,
+.ww-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+.gk-groups {
+  display: grid;
+  gap: var(--s3);
+}
+
+.gk-group {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3);
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+}
+
+.gk-group[data-main='true'] {
+  border-color: var(--cyan);
+  box-shadow: var(--sh-sm);
+}
+
+.gk-group[data-me='true'] .gk-opt {
+  color: var(--cyan);
+}
+
+.gk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.gk-opt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gk-tag {
+  flex: none;
+  padding: 0 var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--on-accent);
+  background: var(--cyan);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+}
+
+.gk-who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.gk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-weight: 700;
+}
+
+.gk-none {
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.gk-team,
+.ww-top,
+.ww-duo {
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  text-align: center;
+}
+
+.ww-duo[data-agree='true'] {
+  color: var(--ok);
+}
+
+.ww-duo[data-agree='false'] {
+  color: var(--bad);
+}
+
+.vote-bar[data-top='true'] .vote-fill {
+  background: var(--hot);
+  animation: pulse calc(var(--d-slow) * 3) ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vote-bar[data-top='true'] .vote-fill {
+    animation: none;
   }
 }

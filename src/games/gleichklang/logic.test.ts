@@ -130,7 +130,7 @@ describe('gleichklang parseInput und input', () => {
     const s = make(3);
     const n = ask(s).opts.length;
     expect(send(s, 'p0', 1, 0)).toBe(s);
-    expect(send(s, 'p0', 0, n)).toBe(s);
+    expect(gleichklang.input(s, 'p0', { k: 0, i: n, ms: 1 }, NOW)).toBe(s);
     expect(send(s, 'zz', 0, 0)).toBe(s);
     const a = send(s, 'p0', 0, 0);
     expect(a).not.toBe(s);

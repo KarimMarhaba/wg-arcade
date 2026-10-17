@@ -226,3 +226,43 @@ Warum: Laufzeitbudget der E2E (Ziel ≤ 9 min); die Rundenzahl-Flag macht Ein-Ru
 ## 2026-10-17 — Paket 2, Schritt 2: Messung E2E
 Was: `npm test` nach Schritt 2: 710 Unit-Tests und 41 E2E-Tests in 4,6 min (vorher 33 Tests, 4,5 min). Neu sind `duo.spec.ts` (4 Tests, 19 s zusammen, `--repeat-each=3` in 61 s grün) und `drive.spec.ts` (4 Fixture-Tests, unter 2 s). Ziel bleibt ≤ 9 min.
 Warum: Laufzeit-Budget des Master-Plans (§4.3) mitführen.
+
+## 2026-10-17 — D-P2-6: werwuerde zu zweit
+Was: Zu zweit zieht werwuerde nur `duo`-Fragen und setzt „Wer von uns beiden würde eher …“ davor. Einigkeit (beide wählen dieselbe Person) gibt beiden +1 und dem Gewählten zusätzlich +1; Uneinigkeit oder nur eine Stimme gibt 0 Punkte (der Abstimmende hat trotzdem einen `result`-Eintrag). Im Trinkmodus trinkt bei Einigkeit der Gewählte 1 Schluck (`take`), bei Uneinigkeit trinkt niemand und `cheers` gilt (Anstoßen).
+Warum: Ohne Mehrheit gibt es zu zweit keinen Spitzenreiter; Einigkeit ist der einzig sinnvolle Konformitätstreffer, Uneinigkeit soll folgenlos und freundlich enden statt jemanden zu bestrafen.
+
+## 2026-10-17 — D-P2-7: Gleichklang-Tiebreak über lokal gemessene Antwortzeit
+Was: Der Client misst `ms` ab der eigenen Anzeige von Frage k und sendet `{k, i, ms}`; der Host kappt auf 0..7000 und nutzt `now` nie für die Wertung. Zu zweit gibt jede Treffer-Frage dem kleineren `ms` +1 (bei Gleichheit nach der Kappung niemandem). Die Reihenfolge, in der die Antworten beim Host eintreffen, zählt nicht; ein Unit-Fall belegt, dass die später eingetroffene Antwort mit kleinerem `ms` gewinnt.
+Warum: Design §3 „Latenz entscheidet nie“. Ein Host-Zeitstempel würde den Host (keine Netzlatenz) bevorzugen; P2 1.1 („Host-Zeitstempel, der Client misst nichts“) ist damit überholt.
+
+## 2026-10-17 — Schritt 3: Wertungs- und Label-Definitionen
+Was: gleichklang: `n = s.pids.length`; ab 3 Spielern `round(100 · Σ_k gleiche Antworten anderer / (n−1))` (ganzzahlig gerechnet), zu zweit `100 · Treffer + Tiebreak` (D-P2-7), bei n=1 die Zahl der Antworten. Label `T Treffer`: T = Fragen, in denen mindestens ein Mitspieler dieselbe Antwort wählte (bei n=1 die Zahl der Antworten). Hauptstrom = alle größten Gruppen ab 2 Leuten; `gk-team` „Ihr wart X/6 im Gleichklang“: X = Fragen, in denen alle Antwortenden (mindestens 2) gleich wählten; die Zeile steht in jeder Auflösung (davor als „Bisher X/k“), damit das Layout-Audit sie abdeckt. werwuerde: ab 3 Spielern +1 für die Stimme auf einen Spitzenreiter (bei Gleichstand alle) und +1 als Spitzenreiter; Label `n Pkt`; n=1: ein Punkt je abgegebene Stimme (triviale Fassung). Ein `result`-Eintrag entsteht erst mit der ersten Eingabe (D-P2-5), auch wenn jemand als Spitzenreiter gewählt wurde.
+Warum: Die Definitionen müssen für Wertung, Label und Sicht dieselben Zahlen liefern; die n=1-Fassung hält nur das Dev-Spiel lauffähig und soll nichts Eigenes bewerten.
+
+## 2026-10-17 — Schritt 3: Bank-Stamm und Duo-Pool
+Was: Die werwuerde-Bank speichert nur den Stamm (`q`: „den eigenen Geburtstag verschlafen?“), die Logik setzt „Wer würde eher “ bzw. zu zweit „Wer von uns beiden würde eher “ davor (`STEM`/`STEM_DUO` in `questions.ts`); die Längengrenze 90 gilt für den angezeigten Text samt Präfix. Zu zweit ziehen beide Spiele nur aus `duo`-Einträgen, bei n=1 und ab 3 aus der ganzen Bank, `duo`-Einträge müssen also auch in Gruppen passen. Bänke: gleichklang 66 Fragen (22 duo, 2–4 verschiedene Optionen), werwuerde 72 (26 WG, 39 duo).
+Warum: Ein Stamm vermeidet doppelte Texte und hält beide Fassungen synchron; ein gemeinsamer Pool je Modus statt zweier Banken hält die Bank klein und lässt sich über `bankProblems` prüfen.
+
+## 2026-10-17 — Schritt 3: keine Nachfrist je Frage
+Was: gleichklang und werwuerde haben keine `GRACE`-Nachfrist je Frage. `input` gilt, solange `phase` die Frage- bzw. Abstimmungsphase ist und `k` passt; erst `tick` (Zeit oder `allDone`) schaltet weiter.
+Warum: `GRACE` (1500 ms) wird nicht skaliert; mit Nachfrist je Frage bräuchte gleichklang bei speed 10 6 × (700 + 300) + 6 × 1500 = 15 000 ms, `maxMs(10)` ist 13 500 – die Leerlauf-Konformität fiele. Die späte Antwort einer Verbindung kurz vor Fragenende geht verloren; das ist bei 7 s Fragen und lokal gemessenem Tiebreak akzeptiert.
+
+## 2026-10-17 — Schritt 3: Purity ignoriert Zeichenketten-Literale
+Was: `purity.test.ts` entfernt vor den Verbotsregeln den Inhalt von `'…'`- und `"…"`-Literalen (kleiner Scanner, Template-Literale und ihre `${…}`-Ausdrücke bleiben sichtbar, Kommentare werden nicht gestrippt). Selbsttest: `'erstes Date'` geht durch, `Date.now()`, `new Date(` und `` `${Date.now()}` `` werden gemeldet. Die UI-Import-Regel läuft weiter auf dem Rohtext.
+Warum: Die Regel `/\bDate\b/` meldete „erstes Date“ in einer Bank; Banken bleiben im Purity-Glob (Zeit, Zufall und DOM bleiben verboten), nur ihr Inhalt zählt nicht.
+
+## 2026-10-17 — Schritt 3: Standard-Verbotsliste erweitert
+Was: `bankProblems` meldet zusätzlich Aussehen/Körper (u. a. `Aussehen`, `hübsch…`, `Frisur…`, ganze Wörter `dick`/`fett`), Herkunft, Religion, Sexualität und Alkohol (u. a. `Alkohol…`, `Bier…`, ganzes Wort `Wein`/`Weine`, `Shot(s)`, `Kater`, `betrunken…`, `sauf…`). Wo ein Stamm Fehlalarm gibt, gilt das ganze Wort („Fettnäpfchen“, „dicke Luft“, „Weinen“, „Insekt“, „Körperzelle“). Je Kategorie gibt es ein meldendes und ein sauberes Fixture; das saubere enthält wörtlich „erstes Date“ und „Fettnäpfchen“.
+Warum: Beide Spiele laufen im Normalpool (kein Alkohol, nichts über Aussehen oder Körper); die Liste ist nur das Sicherheitsnetz, der Reviewer liest jede Bank zusätzlich.
+
+## 2026-10-17 — Schritt 3: `badDrinks` ohne Obergrenze, Plan-Erkennung wie `isPlan`
+Was: Die Konformitätsprüfung `badDrinks` verlangt ganzzahlige Werte ≥ 0 und bekannte pids, aber keine Obergrenze; ihre Plan-Erkennung ist dieselbe wie `isPlan` in `engine/drinks.ts` (`rows` ein Objekt, `cheers` ein Boolean). Zusätzlich prüft die Konformität für alle Spiele, dass `first` allein einen `result`-Eintrag erzeugt (D-P2-5).
+Warum: Die einzige Kappung ist `capDrinks` in der Engine (`party.test` belegt 9 → 3, werwuerde liefert roh bis 4); eine zweite Grenze im Spiel würde die Summenbildung verfälschen.
+
+## 2026-10-17 — Schritt 3: namePicker `data-cols` zählt die angezeigten Namen
+Was: `namePicker` setzt zwei Spalten ab 5 angezeigten Namen (`self: false` blendet die eigene Person aus und zählt entsprechend), nicht ab 5 Spielern. Das bleibt so. Weitere Bausteinänderungen: Der gewählte, gesperrte `choice`/`pick` behält seine volle Füllung (der `.btn:disabled`-Streifen gilt nur für die anderen), `VoteRow.top` setzt `data-top` (Puls, unter `prefers-reduced-motion` aus), `e2e/contract.ts` führt `LEGACY` (die vier Altspiele, `games.spec` läuft nur darüber; `duo.spec` über alle).
+Warum: Die Spaltenzahl hängt an den Knöpfen, nicht an der Party; der Streifen auf dem gewählten Knopf nahm dem Tipp die Rückmeldung.
+
+## 2026-10-17 — Paket 2, Schritt 3: Messung E2E
+Was: `npm test` nach Schritt 3: 865 Unit-Tests (11 s) und 46 E2E-Tests in 5,5 min (Gesamtlauf mit Build 5 min 40 s; vorher 41 Tests, 4,6 min). Neu sind je Spiel ein Duo-Test (gleichklang 6,7 s, werwuerde 5,8 s) und zwei Layout-Tests ohne `fast` (je ≈ 6 s); `party.spec` läuft mit erweitertem `NORMAL` und Seed 20261017 grün (39,8 s) und belegt beide neuen Spiele mit 3 Spielern. Korrektur zum Schritt-2-Eintrag: `drive.spec.ts` hat 5 Fixture-Tests, nicht 4. Ziel bleibt ≤ 9 min.
+Warum: Laufzeit-Budget des Master-Plans (§4.3) mitführen; die Zahl der drive-Tests stand im Schritt-2-Eintrag falsch.

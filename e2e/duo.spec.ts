@@ -86,8 +86,9 @@ const clipped = (page: Page): Promise<number> =>
 
 const tapFirst = (page: Page, id: string): Promise<{ chosen: string[]; others: string[] }> =>
   page.evaluate((t) => {
-    const all = [...document.querySelectorAll<HTMLElement>(`[data-testid=${t}]`)];
-    all[0]?.click();
+    const find = () => [...document.querySelectorAll<HTMLElement>(`[data-testid=${t}]`)];
+    find()[0]?.click();
+    const all = find();
     const img = (b: HTMLElement) => getComputedStyle(b).backgroundImage;
     return {
       chosen: all.filter((b) => b.getAttribute('aria-pressed') === 'true').map(img),

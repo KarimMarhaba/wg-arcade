@@ -8,6 +8,10 @@ export const HAMMER = 8000;
 export const FARBFALLE = 20000;
 export const SF_ASK = 20000;
 export const SF_REVEAL = 5000;
+export const GK_ASK = 7000;
+export const GK_REVEAL = 3000;
+export const WW_VOTE = 10000;
+export const WW_REVEAL = 4000;
 
 export const BLITZ_MAX = 1000;
 export const GRACE = 1500;

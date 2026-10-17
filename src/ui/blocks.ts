@@ -168,6 +168,7 @@ export interface VoteRow {
   label: string;
   count: number;
   mine?: boolean;
+  top?: boolean;
 }
 
 export function voteBars(ctx: BlockCtx, rows: readonly VoteRow[]): Block<[rows: readonly VoteRow[]]> {
@@ -180,7 +181,7 @@ export function voteBars(ctx: BlockCtx, rows: readonly VoteRow[]): Block<[rows: 
         fill.style.setProperty('--share', String(r.count / max));
         return h(
           'li',
-          { class: 'vote-bar', testid: 'vote-bar', 'data-key': r.key, 'data-count': r.count, 'data-me': r.mine ? 'true' : null },
+          { class: 'vote-bar', testid: 'vote-bar', 'data-key': r.key, 'data-count': r.count, 'data-me': r.mine ? 'true' : null, 'data-top': r.top ? 'true' : null },
           h('span', { class: 'vote-label' }, r.label),
           h('span', { class: 'vote-track' }, fill),
           h('span', { class: 'vote-count' }, String(r.count)),
