@@ -1,0 +1,20 @@
+:root {
+  --bg: #0c0b10;
+  --bg-2: #17151f;
+  --bg-3: #221f2d;
+  --ink: #f4f1ea;
+  --ink-dim: #a29eb3;
+  --line: #000;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+
+  --font-display: 'Bricolage Grotesque Variable', 'Archivo Black', system-ui, sans-serif;
+  --font-text: 'Space Grotesk Variable', system-ui, sans-serif;
+}

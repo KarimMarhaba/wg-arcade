@@ -1,0 +1,30 @@
+html,
+body {
+  margin: 0;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-variant-numeric: tabular-nums;
+}
+
+#app {
+  height: 100%;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+h1 {
+  margin: 0;
+  padding: var(--s5);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variation-settings: 'wdth' 75;
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
