@@ -61,3 +61,27 @@ Warum: Die Spiellogik bleibt rein und kennt die Party nicht; bei 50+ Fragen und 
 ## 2026-10-17 — Ohne Eingabe kein Ergebnis
 Was: `result` von blitz, hammer und farbfalle enthält nur Spieler mit mindestens einer gültigen Eingabe; ohne Eingabe gilt das Label „–“. Schätzfuchs trägt ohne Tipp ebenfalls keinen Eintrag. Fehlende blitz-Versuche eines Teilnehmers zählen 1000. Früh-Ende gilt, wenn es mindestens einen Online-Teilnehmer gibt und alle Online-Teilnehmer fertig sind; Offline-Spieler blockieren nicht.
 Warum: Der Client meldet immer etwas (blitz 1000 bei Kein-Tap, hammer `final`, farbfalle `done`). Ohne die Regel bekäme bei 2 Spielern ein online gemeldeter, aber nie eingreifender Spieler einen Wert und damit 3 Punkte. `rank` setzt fehlende Einträge auf den letzten Platz mit 0 Punkten.
+
+## 2026-10-17 — D-3: Client-`render` liefert `Mounted{update,destroy}`
+Was: `Render<V, I> = (root, v, send, ctx) => Mounted<V>` mit `Mounted<V> = {update(v), destroy()}` (`games/types.ts`). Die Screens (`ui/screens/*`) folgen demselben Muster; `party.ts` behält einen gemounteten Sub-Screen, solange `(s, r)` gleich bleibt, und ruft nur `update(view)`.
+Warum: Lokaler Spielzustand (Timer, Fortschritt) überlebt Sicht-Updates; Listener und Timer werden in `destroy` aufgeräumt.
+
+## 2026-10-17 — D-4: Host-Steuerung nur lokal
+Was: `host.control(a)` ist nur über die Host-Laufzeit erreichbar und nicht Teil des Protokolls. `again`/`lobby` nimmt `control` ohne Seed an und füllt ihn aus dem injizierten `rand` (uint32); die UI erzeugt nie Seeds. Die UI zeigt Host-Knöpfe nur bei `view.isHost && env.control`.
+Warum: Clients können die Party nicht steuern; das Protokoll bleibt wie im Design. Seeds im Host halten die UI frei von Zufall (D-5: neue Party braucht neuen Seed).
+
+## 2026-10-17 — `connectLocal(): Conn` statt `localConn`
+Was: `createHost` liefert `connectLocal()`; jeder Aufruf erzeugt ein neues Loopback-Paar, die Host-Seite wird wie eine eingehende Conn behandelt (gleicher `hello`-Pfad, gleiche Rebind-Regel). Die Host-eigene Sitzung nutzt `connect: () => Promise.resolve(host.connectLocal())` und damit den normalen Reconnect-Pfad.
+Warum: Der Watchdog der Host-Sitzung schlägt an, wenn der Tab im Hintergrund war; mit einer einmaligen `localConn` stünde dann `lost` auf dem Host-Handy, obwohl die Party läuft.
+
+## 2026-10-17 — Verbindungsfehler beim ersten Verbinden wie beim Reconnect
+Was: `createClientSession` behandelt Fehlschläge beim ersten Verbinden wie einen Reconnect: Versuche laufen streng nacheinander (nie parallel) im 1-s-Takt, nach 10 s ohne `welcome` folgt `lost`. Währenddessen bleibt der Zustand `connecting`. `joined` gilt erst ab `welcome`; `reject` ist endgültig (`rejected`, kein Reconnect). Eine Conn, die nach `lost`, `close()` oder einem anderen Ergebnis ankommt, wird sofort geschlossen.
+Warum: Ein falscher Raumcode landet nach höchstens 10 s auf dem Lost-Screen, statt ewig zu hängen; Local-`join` braucht 3 s bis `noroom`, parallele Versuche würden sich stauen.
+
+## 2026-10-17 — Host bindet erst, dann schließt; geschlossene Spieler-Conns
+Was: Bei gleicher `pid` auf neuer Conn wird zuerst die neue gebunden, dann die alte geschlossen; `onClose` ruft `disconnect` nur für die noch gebundene Conn. `flush` schließt gebundene Conns, deren Spieler die Engine entfernt hat (Lobby-Timeout, „Neue Party“). `stop()` schließt alle eigenen Conns selbst.
+Warum: `close()` feuert `onClose` synchron; ohne diese Reihenfolge würde ein Reload den Spieler in der Lobby entfernen. Der Client verbindet nach dem Schließen neu und wird wieder aufgenommen.
+
+## 2026-10-17 — `ViewCtx` ohne `sfx`/`fx` bis Schritt 6
+Was: `ViewCtx = {me, toLocal, reducedMotion}`; `sfx` und `fx` kommen mit Schritt 6 (Design-System). `Mounted` und `Render` stehen in `games/types.ts`. Der Rejected-Screen lebt in `screens/lost.ts`; `fakeclock.ts` ist ein reiner Test-Helfer in `src/engine/`.
+Warum: `Sfx`/`Fx` existieren erst in Schritt 6; Schritt 5 braucht nur Zeitumrechnung und Reduced-Motion.

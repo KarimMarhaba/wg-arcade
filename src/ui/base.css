@@ -28,3 +28,115 @@ h1 {
   line-height: 0.9;
   text-transform: uppercase;
 }
+
+main[data-screen],
+main.neutral {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  box-sizing: border-box;
+  height: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: var(--s4);
+  overflow-y: auto;
+}
+
+h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+button {
+  min-height: var(--tap-min);
+  padding: 0 var(--s5);
+  font: inherit;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--lime);
+  border: 3px solid var(--line);
+  border-radius: 6px;
+}
+
+button:disabled {
+  opacity: 0.4;
+}
+
+button[aria-pressed='true'] {
+  outline: 3px solid var(--ink);
+}
+
+input {
+  min-height: var(--tap-min);
+  box-sizing: border-box;
+  padding: 0 var(--s4);
+  font: inherit;
+  font-size: 20px;
+  color: var(--ink);
+  background: var(--bg-2);
+  border: 3px solid var(--line);
+  border-radius: 6px;
+  user-select: text;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+form[hidden] {
+  display: none;
+}
+
+ul.players,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+ul.players li,
+ol li {
+  padding: var(--s2) var(--s3);
+  background: var(--bg-2);
+}
+
+.segmented {
+  display: flex;
+  gap: var(--s2);
+}
+
+.segmented button {
+  flex: 1;
+}
+
+.code {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 48px;
+  letter-spacing: 0.2em;
+}
+
+.qr svg {
+  display: block;
+  width: 60vw;
+  max-width: 280px;
+  height: auto;
+  background: var(--ink);
+}
+
+.banner {
+  margin: 0;
+  padding: var(--s3);
+  color: var(--bg);
+  background: var(--bad);
+}
+
+.countdown {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 96px;
+}
