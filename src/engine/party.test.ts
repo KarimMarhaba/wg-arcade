@@ -22,15 +22,15 @@ const pl = (p: Party, pid: string) => {
   return x;
 };
 
-const stepAll = (p: Party, now: number, who?: string[]): Party =>
-  eng.tick((who ?? p.players.map((x) => x.pid)).reduce((q, pid) => eng.seen(q, pid, now), p), now);
+const stepAll = (p: Party, now: number, who?: string[], e = eng): Party =>
+  e.tick((who ?? p.players.map((x) => x.pid)).reduce((q, pid) => e.seen(q, pid, now), p), now);
 
-function advance(p: Party, now: number, k: Phase['k'], who?: string[]): { p: Party; t: number } {
+function advance(p: Party, now: number, k: Phase['k'], who?: string[], e = eng): { p: Party; t: number } {
   let t = now;
   let q = p;
   while (q.phase.k !== k) {
     t += 100;
-    q = stepAll(q, t, who);
+    q = stepAll(q, t, who, e);
     if (t > now + 500_000) throw new Error(`${k} nicht erreicht`);
   }
   return { p: q, t };
@@ -660,12 +660,12 @@ describe('Trinkmodus: Rundenende', () => {
   const play = (e: typeof eng, drinking: boolean, speed = 1) => {
     let p = e.hello(e.hello(e.hello(e.create('ABCD', 42, HOST, { dev: false, speed }), HOST, 'Host', 0).p, 'a', 'a', 0).p, 'b', 'b', 0).p;
     p = e.control(p, { a: 'drinking', on: drinking }, 0);
-    return advance(e.control(p, { a: 'start' }, 0), 0, 'play');
+    return advance(e.control(p, { a: 'start' }, 0), 0, 'play', undefined, e);
   };
   const finish = (e: typeof eng, p0: Party, votes: Record<string, number>, t: number): Party => {
     let p = p0;
     for (const [pid, v] of Object.entries(votes)) p = e.input(p, pid, 0, { v }, t);
-    return stepAll(p, t);
+    return stepAll(p, t, undefined, e);
   };
   const rowsOf = (p: Party, pid = HOST) => {
     const v = eng.viewFor(p, pid, 0);
