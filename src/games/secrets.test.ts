@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { blindmaler, type BmState } from './blindmaler/logic';
+import { WORDS as BM_WORDS } from './blindmaler/words';
 import { bombe, type BombeState } from './bombe/logic';
 import { erklaerbaer, type EbState } from './erklaerbaer/logic';
 import { ringNext } from './common';
@@ -218,7 +220,57 @@ const ebGuessers = (s: EbState): string[] => s.pids.filter((p) => p !== s.explai
 const ebWords = (c: Term): string[] => [c.term, ...c.taboo].map((w) => `"${w}"`);
 const ebCard = (s: EbState, at: number): Term => TERMS[s.deck[at] as number] as Term;
 
+const hex2 = (n: number): string => n.toString(16).padStart(2, '0');
+const bmInk = (pid: string, k = 0): string => `${hex2(16 + indexOf(pid))}${hex2(32 + k)}${hex2(48 + indexOf(pid))}${hex2(64 + k)}`;
+const bmWord = (s: BmState, pid: string, k: number): string => (BM_WORDS[(s.words[pid] as number[])[k] as number] as { word: string }).word;
+const bmWords = (s: BmState, pid: string): string[] => (s.words[pid] as number[]).map((_, k) => `"${bmWord(s, pid, k)}"`);
+const bmRaw = ['"words"', '"ink"', '"imgs"', '"ans"', '"tips"', '"options"', '"seed"'];
+
+function blindmalerDraw(n: number): BmState {
+  return pidsOf(n).reduce((s, pid) => {
+    const x = blindmaler.parseInput({ a: 'draw', k: 0, strokes: [bmInk(pid)] });
+    if (x === null) throw new Error('ungueltig');
+    return blindmaler.input(s, pid, x, NOW);
+  }, start(blindmaler, n));
+}
+
+function blindmalerShow(n: number): BmState {
+  let s = start(blindmaler, n);
+  for (let k = 0; k < s.slots; k++) {
+    s = pidsOf(n).reduce((q, pid) => {
+      const x = blindmaler.parseInput({ a: 'draw', k, strokes: [bmInk(pid, k)], fin: true });
+      if (x === null) throw new Error('ungueltig');
+      return blindmaler.input(q, pid, x, NOW);
+    }, s);
+    s = tickAll(blindmaler, s, NOW, n);
+  }
+  const viewers = s.pids.filter((p) => p !== (s.imgs[0] as { who: string }).who);
+  return viewers.slice(0, Math.ceil(viewers.length / 2)).reduce((q, pid, i) => {
+    const x = blindmaler.parseInput({ a: 'tip', j: 0, i: i % 4 });
+    if (x === null) throw new Error('ungueltig');
+    return blindmaler.input(q, pid, x, NOW);
+  }, s);
+}
+
+const bmTipSecrets = (s: BmState): string[] => Object.entries(s.tips[0] ?? {}).map(([pid, i]) => `${quoted(pid)}:${i}`);
+
 const SECRET_CASES: SecretCase[] = [
+  {
+    name: 'blindmaler Zeichnen (Begriffe aller Slots und Striche des Besitzers, Rohzustand)',
+    def: blindmaler,
+    setup: blindmalerDraw,
+    secrets: (s: BmState, owner) => [...bmWords(s, owner), bmInk(owner), ...bmRaw],
+  },
+  {
+    name: 'blindmaler Galerie (Begriff und Striche spaeterer Bilder, Tipps, Rohzustand)',
+    def: blindmaler,
+    setup: blindmalerShow,
+    secrets: (s: BmState, owner) => [
+      ...s.imgs.flatMap((img, j) => (j > 0 && img.who === owner ? [`"${bmWord(s, owner, img.k)}"`, bmInk(owner, img.k)] : [])),
+      ...bmTipSecrets(s),
+      ...bmRaw,
+    ],
+  },
   {
     name: 'luegenbaron Tippphase (Wahrheitsfeld, Seed-Standard, Tipp-Map)',
     def: luegenbaron,

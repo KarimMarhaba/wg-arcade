@@ -7,6 +7,7 @@ const POINTS = [5, 3, 2, 1];
 const GUESSES = [50, 5000, 200];
 const ROUNDS = 5;
 const NORMAL = [
+  'blindmaler',
   'blitz',
   'bombe',
   'erklaerbaer',
@@ -20,8 +21,8 @@ const NORMAL = [
   'verraeter',
   'werwuerde',
 ];
-const RUN1 = ['hammer', 'pokerface', 'bombe', 'luegenbaron', 'stopp'];
-const RUN2 = ['werwuerde', 'gleichklang', 'luegenbaron', 'erklaerbaer', 'hammer'];
+const RUN1 = ['luegenbaron', 'werwuerde', 'hammer', 'stopp', 'verraeter'];
+const RUN2 = ['hammer', 'bombe', 'werwuerde', 'pokerface', 'luegenbaron'];
 const played = new Set<string>();
 const SEED = 20261017;
 

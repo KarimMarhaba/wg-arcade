@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GRACE, TICK } from '../engine/durations';
 import { DRINK_CAP, type DrinkPlan, type RawDrinks } from '../engine/drinks';
 import { isRecord } from './common';
+import { blindmaler } from './blindmaler/logic';
 import { blitz } from './blitz/logic';
 import { bombe } from './bombe/logic';
 import { erklaerbaer, type EbState } from './erklaerbaer/logic';
@@ -73,6 +74,13 @@ const ebCase: Case = {
   prep: (s: EbState, now) => fastForward(erklaerbaer, s, now, (q) => q.phase === 'explain' && q.explainers[q.k] === 'p0'),
 };
 
+const bmWorst = Array.from({ length: 600 }, (_, k) => `${(k % 256).toString(16).padStart(2, '0')}${((k * 7) % 256).toString(16).padStart(2, '0')}`);
+const bmCase: Case = {
+  def: blindmaler,
+  first: () => ({ a: 'draw', k: 0, strokes: ['0a0b1c1d'] }),
+  finish: () => [{ a: 'draw', k: 0, strokes: bmWorst, fin: true }],
+};
+
 const CASES: Case[] = [
   { def: blitz, first: () => blitzInputs[0], finish: () => blitzInputs },
   { def: hammer, first: () => ({ n: 12, final: true }), finish: () => [{ n: 12, final: true }] },
@@ -90,6 +98,7 @@ const CASES: Case[] = [
   vrCase,
   pfCase,
   ebCase,
+  bmCase,
 ];
 
 const GARBAGE: unknown[] = [

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gameGone, playRound, type EbSeen, type RoundOpts } from './bots';
+import { gameGone, playRound, scribble, type EbSeen, type RoundOpts } from './bots';
 import { ACCENT, CONTRACT, LABEL, type Id } from './contract';
 import { audit, cssColor, joinByCode, openHost, screen, tid } from './helpers';
 import { rec as readRec, WATCH_GAMES, type Rec } from './watch';
@@ -23,6 +23,12 @@ for (const id of IDS)
 
     const hostOpts: RoundOpts = { guess: GUESS.host, bias: 0 };
     const guestOpts: RoundOpts = { guess: GUESS.guest, bias: 1 };
+    const hostWords: string[] = [];
+    const guestWords: string[] = [];
+    if (id === 'blindmaler') {
+      Object.assign(hostOpts, { words: hostWords, avoidAny: guestWords });
+      Object.assign(guestOpts, { words: guestWords, aimAny: hostWords });
+    }
     if (id === 'pokerface') {
       const [karim, anna] = await Promise.all(
         pages.map(async (p) => {
@@ -103,6 +109,23 @@ for (const id of IDS)
       expect(rows.find((x) => x.name === 'Anna')?.label, 'Anna 1 Treffer, 1 Tabu').toBe('3 Pkt');
       expect(rows.find((x) => x.name === 'Karim')?.points).toBe('5');
       expect(rows.find((x) => x.name === 'Anna')?.points).toBe('3');
+    }
+
+    if (id === 'blindmaler') {
+      const rows = h.results[0] ?? [];
+      expect(rows.find((x) => x.name === 'Karim')?.label, 'Anna erkennt beide Bilder von Karim').toBe('4 Pkt');
+      expect(rows.find((x) => x.name === 'Anna')?.label, 'Karim meidet Annas Begriffe, Anna trifft zweimal').toBe('2 Pkt');
+      expect(rows.find((x) => x.name === 'Karim')?.points).toBe('5');
+      expect(rows.find((x) => x.name === 'Anna')?.points).toBe('3');
+      expect(hostWords).toHaveLength(2);
+      expect(guestWords).toHaveLength(2);
+      expect(new Set([...hostWords, ...guestWords]).size, 'vier verschiedene Begriffe').toBe(4);
+      for (const [who, played] of [['Karim', hostPlayed], ['Anna', guestPlayed]] as const) {
+        expect(played.bm?.words, who).toHaveLength(2);
+        expect(played.bm?.inks, `${who}: jedes Galerie-Canvas ist nicht leer`).toEqual([true, true, true, true]);
+        expect(played.bm?.drawerChoices, `${who}: der Zeichner sieht keinen choice-Knopf`).toBe(0);
+        expect(played.bm?.viewerChoices, `${who}: 2 Bilder zu je 4 Optionen`).toBe(8);
+      }
     }
 
     if (id === 'schaetzfuchs') {
@@ -446,6 +469,61 @@ test.describe('Layout ohne fast, zwei Seiten', () => {
     await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-erklaerbaer-reveal-${k}`)));
     expect(errors).toEqual([]);
   });
+});
+
+test('blindmaler: Zeichnen, Fertig vor dem zweiten FERTIG, Galerie als Betrachter und Zeichner und Auflösung bestehen audit', async ({ context }) => {
+  test.setTimeout(90_000);
+  const errors: string[] = [];
+  const run = { only: 'blindmaler', rounds: 1, seed: SEED, fast: false };
+  const host = await openHost(context, 'Karim', errors, run);
+  const guest = await joinByCode(context, host.code, 'Anna', errors, run);
+  const pages = [host.page, guest];
+  await host.page.getByTestId('btn-start').click();
+
+  for (const p of pages) {
+    await screen(p, 'game').waitFor({ timeout: 15_000 });
+    await expect(screen(p, 'game')).toHaveAttribute('data-state', 'draw');
+    await expect(tid(p, 'bm-word')).toBeVisible();
+    await expect(tid(p, 'bm-pad')).toBeVisible();
+    await expect(tid(p, 'btn-done')).toBeVisible();
+    await expect(tid(p, 'bm-canvas')).toHaveCount(0);
+  }
+  await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-blindmaler-draw-${k}`)));
+  for (const p of pages) expect(await clipped(p), 'abgeschnittener Text').toBe(0);
+  await Promise.all(pages.map((p) => scribble(p)));
+
+  await tid(host.page, 'btn-done').click({ timeout: 2000 });
+  await expect(screen(host.page, 'game')).toHaveAttribute('data-state', 'drawn');
+  await expect(tid(host.page, 'btn-done')).toHaveCount(0);
+  await expect(screen(guest, 'game')).toHaveAttribute('data-state', 'draw');
+  await audit(host.page, 'game', 'duo-blindmaler-drawn-0');
+  await tid(guest, 'btn-done').click({ timeout: 2000 });
+
+  for (const p of pages) {
+    await expect(screen(p, 'game')).toHaveAttribute('data-step', '1');
+    await expect(screen(p, 'game')).toHaveAttribute('data-state', 'draw');
+  }
+  for (const p of pages) await tid(p, 'btn-done').click({ timeout: 2000 });
+
+  for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'gallery');
+  const roles = await Promise.all(pages.map((p) => screen(p, 'game').getAttribute('data-role')));
+  expect([...roles].sort()).toEqual(['drawer', 'viewer']);
+  const drawer = pages[roles.indexOf('drawer')] as Page;
+  const viewer = pages[roles.indexOf('viewer')] as Page;
+  await expect(tid(viewer, 'bm-canvas')).toBeVisible();
+  await expect(tid(drawer, 'bm-canvas')).toBeVisible();
+  await expect(tid(viewer, 'choice')).toHaveCount(4);
+  await expect(tid(drawer, 'choice')).toHaveCount(0);
+  await expect(tid(drawer, 'bm-own')).toBeVisible();
+  await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-blindmaler-gallery-${k}`)));
+  for (const p of pages) expect(await clipped(p), 'abgeschnittener Text').toBe(0);
+
+  await tid(viewer, 'choice').first().click({ timeout: 2000 });
+  for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'reveal');
+  for (const p of pages) await expect(tid(p, 'bm-answer')).toBeVisible();
+  await expect(tid(drawer, 'bm-answer')).toHaveCSS('color', await cssColor(drawer, '--ok'));
+  await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-blindmaler-reveal-${k}`)));
+  expect(errors).toEqual([]);
 });
 
 test('verraeter: drei Spieler, Rollen vor dem Start gelesen, die Crew stimmt gegen den Verräter', async ({ context }) => {

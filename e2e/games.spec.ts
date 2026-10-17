@@ -112,7 +112,7 @@ test.describe('Reduced Motion: Ballon und Ring', () => {
       return { animation: longest(css.animationDuration), transition: longest(css.transitionDuration) };
     }, testid);
 
-  for (const [id, state, testid] of [['bombe', 'pump', 'balloon'], ['stopp', 'blind', 'stopp-ring']] as const)
+  for (const [id, state, testid] of [['bombe', 'pump', 'balloon'], ['stopp', 'blind', 'stopp-ring'], ['blindmaler', 'draw', 'bm-dot']] as const)
     test(`${id}: ${testid} hat keine wirksame Animation oder Transition`, async ({ context }) => {
       test.setTimeout(60_000);
       const errors: string[] = [];

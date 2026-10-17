@@ -18,7 +18,7 @@ describe('Registry', () => {
     expect(Object.keys(GAMES).sort()).toEqual([...GAME_IDS].sort());
   });
 
-  it('die genaue Liste der zwoelf Spiele, pokerface und erklaerbaer am Ende, Akzente lime und orange', () => {
+  it('die genaue Liste der dreizehn Spiele, blindmaler am Ende, Akzent cyan', () => {
     expect([...GAME_IDS]).toEqual([
       'blitz',
       'hammer',
@@ -32,6 +32,7 @@ describe('Registry', () => {
       'verraeter',
       'pokerface',
       'erklaerbaer',
+      'blindmaler',
     ]);
     expect(GAMES.gleichklang.accent).toBe('cyan');
     expect(GAMES.werwuerde.accent).toBe('hot');
@@ -41,7 +42,8 @@ describe('Registry', () => {
     expect(GAMES.verraeter.accent).toBe('cyan');
     expect(GAMES.pokerface.accent).toBe('lime');
     expect(GAMES.erklaerbaer.accent).toBe('orange');
-    for (const id of ['luegenbaron', 'verraeter', 'pokerface', 'erklaerbaer'] as const) {
+    expect(GAMES.blindmaler.accent).toBe('cyan');
+    for (const id of ['luegenbaron', 'verraeter', 'pokerface', 'erklaerbaer', 'blindmaler'] as const) {
       expect(GAMES[id].drinks, id).toBeUndefined();
       expect(GAMES[id].drinkOnly, id).toBeUndefined();
     }
@@ -211,6 +213,21 @@ const STAGED: Partial<Record<GameId, Stage>> = {
       host: mine === HOST ? [first, second] : [],
       guest: mine === GUEST ? [first, second] : [],
     };
+  },
+  blindmaler: (s) => {
+    const ink = (pid: string, k: number) => [`${pid === HOST ? '0a14' : '3c50'}${k === 0 ? '2840' : '5078'}`];
+    if (s.phase === 'draw')
+      return {
+        key: `draw${s.slot}`,
+        host: [{ a: 'draw', k: s.slot, strokes: ink(HOST, s.slot), fin: true }],
+        guest: [{ a: 'draw', k: s.slot, strokes: ink(GUEST, s.slot), fin: true }],
+      };
+    if (s.phase !== 'show') return null;
+    const img = s.imgs[s.j];
+    const none = { key: `show${s.j}`, host: [], guest: [] };
+    return img.who === HOST
+      ? { ...none, guest: [{ a: 'tip', j: s.j, i: (img.ans + 1) % 4 }] }
+      : { ...none, host: [{ a: 'tip', j: s.j, i: img.ans }] };
   },
 };
 

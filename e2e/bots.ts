@@ -13,9 +13,17 @@ export interface EbSeen {
   picks: string[];
 }
 
+export interface BmSeen {
+  words: string[];
+  inks: boolean[];
+  drawerChoices: number;
+  viewerChoices: number;
+}
+
 export interface Played {
   game: string;
   seen?: EbSeen[];
+  bm?: BmSeen;
   early?: boolean;
   taps?: number;
   wrong?: number;
@@ -33,6 +41,9 @@ export interface RoundOpts {
   accuse?: string;
   aim?: string;
   avoid?: string;
+  words?: string[];
+  aimAny?: string[];
+  avoidAny?: string[];
 }
 
 const INKS = ['rot', 'blau', 'gelb', 'weiss'] as const;
@@ -341,6 +352,79 @@ export async function playErklaerbaer(page: Page, o: { bias?: number } = {}): Pr
   return { game: 'erklaerbaer', seen };
 }
 
+const SPIRAL_STEPS = 24;
+
+export async function scribble(page: Page): Promise<void> {
+  const box = await page.evaluate(() => {
+    const r = document.querySelector('[data-testid=bm-pad]')?.getBoundingClientRect();
+    return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null;
+  });
+  if (!box) throw new Error('keine Box: bm-pad');
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  for (let i = 1; i <= SPIRAL_STEPS; i++) {
+    const r = (i / SPIRAL_STEPS) * box.w * 0.4;
+    await page.mouse.move(cx + r * Math.cos(i * 0.5), cy + r * Math.sin(i * 0.5));
+  }
+  await page.mouse.up();
+  await page.mouse.move(box.x + box.w * 0.15, box.y + box.h * 0.15);
+  await page.mouse.down();
+  await page.mouse.up();
+}
+
+const imageInfo = (page: Page): Promise<{ ink: boolean; choices: number }> =>
+  page.evaluate(() => {
+    const c = document.querySelector<HTMLCanvasElement>('[data-testid=bm-canvas]');
+    const data = c?.getContext('2d')?.getImageData(0, 0, c.width, c.height).data;
+    let ink = false;
+    if (data) for (let i = 3; i < data.length && !ink; i += 4) ink = data[i] !== 0;
+    return { ink, choices: document.querySelectorAll('[data-testid=choice]').length };
+  });
+
+const blindChoiceAt = (page: Page, aim: readonly string[], avoid: readonly string[]): Promise<{ x: number; y: number } | null> =>
+  page.evaluate(
+    ([want, not]) => {
+      const all = [...document.querySelectorAll<HTMLElement>('[data-testid=choice]')];
+      const text = (b: HTMLElement): string => b.querySelector('.choice-text')?.textContent ?? '';
+      const hit = all.find((b) => want.includes(text(b))) ?? all.find((b) => !not.includes(text(b))) ?? all[0];
+      const box = hit?.getBoundingClientRect();
+      return box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : null;
+    },
+    [[...aim], [...avoid]] as const,
+  );
+
+export async function playBlindmaler(page: Page, o: RoundOpts = {}): Promise<Played> {
+  const bm: BmSeen = { words: [], inks: [], drawerChoices: 0, viewerChoices: 0 };
+  const shown = new Set<string>();
+  await drive(page, async (t) => {
+    if (t.state === 'draw') {
+      const word = await page.evaluate(() => document.querySelector('[data-testid=bm-word]')?.textContent ?? '');
+      if (word !== '') {
+        bm.words.push(word);
+        o.words?.push(word);
+      }
+      await scribble(page);
+      await clickFirst(page, 'btn-done');
+      return;
+    }
+    if (t.state !== 'gallery' && t.state !== 'reveal') return;
+    const key = t.step ?? '';
+    if (!shown.has(key)) {
+      shown.add(key);
+      const info = await imageInfo(page);
+      bm.inks.push(info.ink);
+      if (t.state === 'gallery') bm[t.role === 'drawer' ? 'drawerChoices' : 'viewerChoices'] += info.choices;
+    }
+    if (t.state === 'gallery' && t.role === 'viewer') {
+      const at = await blindChoiceAt(page, o.aimAny ?? [], o.avoidAny ?? []);
+      if (at) await page.mouse.click(at.x, at.y);
+    }
+  });
+  return { game: 'blindmaler', bm };
+}
+
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
   await page.waitForFunction(
     (head) => {
@@ -376,6 +460,8 @@ export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> 
       return playPokerface(page, o);
     case 'erklaerbaer':
       return playErklaerbaer(page, o);
+    case 'blindmaler':
+      return playBlindmaler(page, o);
     default:
       throw new Error(`unbekanntes Spiel: ${game}`);
   }
