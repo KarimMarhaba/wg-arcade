@@ -18,12 +18,29 @@ describe('Registry', () => {
     expect(Object.keys(GAMES).sort()).toEqual([...GAME_IDS].sort());
   });
 
-  it('die genaue Liste der acht Spiele, bombe und stopp am Ende, Akzente orange und lime', () => {
-    expect([...GAME_IDS]).toEqual(['blitz', 'hammer', 'farbfalle', 'schaetzfuchs', 'gleichklang', 'werwuerde', 'bombe', 'stopp']);
+  it('die genaue Liste der zehn Spiele, luegenbaron und verraeter am Ende, Akzente hot und cyan', () => {
+    expect([...GAME_IDS]).toEqual([
+      'blitz',
+      'hammer',
+      'farbfalle',
+      'schaetzfuchs',
+      'gleichklang',
+      'werwuerde',
+      'bombe',
+      'stopp',
+      'luegenbaron',
+      'verraeter',
+    ]);
     expect(GAMES.gleichklang.accent).toBe('cyan');
     expect(GAMES.werwuerde.accent).toBe('hot');
     expect(GAMES.bombe.accent).toBe('orange');
     expect(GAMES.stopp.accent).toBe('lime');
+    expect(GAMES.luegenbaron.accent).toBe('hot');
+    expect(GAMES.verraeter.accent).toBe('cyan');
+    expect(GAMES.luegenbaron.drinks).toBeUndefined();
+    expect(GAMES.verraeter.drinks).toBeUndefined();
+    expect(GAMES.luegenbaron.drinkOnly).toBeUndefined();
+    expect(GAMES.verraeter.drinkOnly).toBeUndefined();
     expect(typeof GAMES.werwuerde.drinks).toBe('function');
     expect(GAMES.gleichklang.drinks).toBeUndefined();
     expect(GAMES.bombe.drinks).toBeUndefined();
@@ -133,7 +150,7 @@ const gview = (e: typeof eng, p: Party, t: number): any => {
   return v.g;
 };
 
-const WIRES: Record<GameId, Wire> = {
+const WIRES: Partial<Record<GameId, Wire>> = {
   blitz: () => ({
     host: [0, 1, 2].map((i) => ({ i, ms: 200 })),
     guest: [0, 1, 2].map((i) => ({ i, ms: 600 })),
@@ -157,20 +174,54 @@ const WIRES: Record<GameId, Wire> = {
   stopp: () => ({ host: [{ k: 0, devMs: 100 }], guest: [{ k: 0, devMs: 900 }] }),
 };
 
+type Stage = (s: any) => { key: string; host: unknown[]; guest: unknown[] } | null;
+
+const STAGED: Partial<Record<GameId, Stage>> = {
+  luegenbaron: (s) => {
+    const hostTells = s.narrators[s.k] === HOST;
+    const key = `${s.phase}${s.k}`;
+    const none = { key, host: [], guest: [] };
+    if (s.phase === 'card') return { key, host: hostTells ? [{ a: 'mode', k: s.k, truth: false }] : [], guest: [] };
+    if (s.phase === 'tell') return { key, host: hostTells ? [{ a: 'done', k: s.k }] : [], guest: [] };
+    if (s.phase !== 'vote') return null;
+    return hostTells
+      ? { ...none, guest: [{ a: 'tip', k: s.k, truth: true }] }
+      : { ...none, host: [{ a: 'tip', k: s.k, truth: s.truth[s.k] }] };
+  },
+  verraeter: (s) =>
+    s.phase === 'vote' ? { key: 'vote', host: [{ a: 'tip', same: s.same }], guest: [{ a: 'tip', same: !s.same }] } : null,
+};
+
 describe('Integration: Draht-Payloads, besserer Spieler gewinnt', () => {
   for (const id of GAME_IDS)
     it(`${id}: Platz 1 und 5 Punkte`, () => {
       const one = createEngine({ [id]: GAMES[id] });
       const start = until(one, lobby(one, { speed: 10, guest: true, rounds: 3 }), 0, 'play');
       let p = start.p;
-      const t = start.t;
-      const wire = WIRES[id](p, t);
+      let t = start.t;
       const send = (pid: string, payloads: unknown[]) => {
         for (const raw of payloads) p = one.input(p, pid, 0, JSON.parse(JSON.stringify(raw)), t);
       };
-      send(HOST, wire.host);
-      send(GUEST, wire.guest);
-      p = until(one, p, t, 'result').p;
+      const wire = WIRES[id];
+      const stage = STAGED[id];
+      expect(Boolean(wire) !== Boolean(stage), `${id}: genau eine Draht-Zeile`).toBe(true);
+      if (wire) {
+        const w = wire(p, t);
+        send(HOST, w.host);
+        send(GUEST, w.guest);
+      }
+      const sent = new Set<string>();
+      for (let n = 0; p.phase.k !== 'result'; n++) {
+        if (n > 3000) throw new Error('result nicht erreicht');
+        const at = p.phase.k === 'play' && stage ? stage(p.phase.state) : null;
+        if (at && !sent.has(at.key)) {
+          sent.add(at.key);
+          send(HOST, at.host);
+          send(GUEST, at.guest);
+        }
+        t += 100;
+        p = step(one, p, t);
+      }
       const rec = p.history[0];
       expect(rec?.places).toEqual({ [HOST]: 1, [GUEST]: 2 });
       expect(rec?.points[HOST]).toBe(5);

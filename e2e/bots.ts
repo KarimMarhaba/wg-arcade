@@ -5,6 +5,9 @@ export interface Played {
   early?: boolean;
   taps?: number;
   wrong?: number;
+  same?: boolean;
+  exposed?: boolean;
+  right?: boolean;
 }
 
 export interface RoundOpts {
@@ -12,6 +15,8 @@ export interface RoundOpts {
   enter?: boolean;
   guess?: number;
   round?: number;
+  bias?: number;
+  accuse?: string;
 }
 
 const INKS = ['rot', 'blau', 'gelb', 'weiss'] as const;
@@ -194,6 +199,56 @@ export async function playStopp(page: Page): Promise<Played> {
   return { game: 'stopp', taps };
 }
 
+async function clickFirst(page: Page, testid: string): Promise<boolean> {
+  const at = await firstBox(page, testid);
+  if (at) await page.mouse.click(at.x, at.y);
+  return at !== null;
+}
+
+export async function playLuegenbaron(page: Page): Promise<Played> {
+  await drive(page, async (t) => {
+    if (t.role === 'narrator' && t.state === 'card') await clickFirst(page, 'btn-lie');
+    if (t.role === 'narrator' && t.state === 'tell') await clickFirst(page, 'btn-done');
+    if (t.role === 'listener' && t.state === 'vote') await clickFirst(page, 'choice');
+  });
+  return { game: 'luegenbaron' };
+}
+
+const pickAt = (page: Page, name: string | null): Promise<{ x: number; y: number } | null> =>
+  page.evaluate((who) => {
+    const all = [...document.querySelectorAll<HTMLElement>('[data-testid=pick]')];
+    const hit = all.find((e) => e.querySelector('.pick-name')?.textContent === who) ?? all[0];
+    const box = hit?.getBoundingClientRect();
+    return box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : null;
+  }, name);
+
+export async function playVerraeter(page: Page, o: { bias?: number; accuse?: string } = {}): Promise<Played> {
+  const out: Played = { game: 'verraeter' };
+  await drive(page, async (t) => {
+    if (t.state === 'round') await clickFirst(page, 'btn-done');
+    if (t.state === 'guess') await clickFirst(page, 'choice');
+    if (t.state === 'vote') {
+      if (await firstBox(page, 'btn-same')) await clickFirst(page, o.bias === 1 ? 'btn-diff' : 'btn-same');
+      else {
+        const at = await pickAt(page, o.accuse ?? null);
+        if (at) await page.mouse.click(at.x, at.y);
+      }
+    }
+    if (t.state === 'reveal') {
+      const r = await page.evaluate(() => {
+        const el = document.querySelector('[data-testid=vr-reveal]');
+        const attr = (k: string): boolean | undefined => {
+          const v = el?.getAttribute(k);
+          return v === 'true' ? true : v === 'false' ? false : undefined;
+        };
+        return { same: attr('data-same'), exposed: attr('data-exposed'), right: attr('data-right') };
+      });
+      Object.assign(out, r);
+    }
+  });
+  return out;
+}
+
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
   await page.waitForFunction(
     (head) => {
@@ -221,6 +276,10 @@ export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> 
       return playBombe(page);
     case 'stopp':
       return playStopp(page);
+    case 'luegenbaron':
+      return playLuegenbaron(page);
+    case 'verraeter':
+      return playVerraeter(page, o);
     default:
       throw new Error(`unbekanntes Spiel: ${game}`);
   }

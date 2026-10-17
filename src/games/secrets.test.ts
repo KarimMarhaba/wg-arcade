@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { bombe, type BombeState } from './bombe/logic';
 import { gleichklang } from './gleichklang/logic';
+import { luegenbaron, type LbState } from './luegenbaron/logic';
 import { stopp } from './stopp/logic';
+import { verraeter, type VrState } from './verraeter/logic';
 import type { GameDef } from './types';
 import { werwuerde } from './werwuerde/logic';
 
@@ -10,6 +12,7 @@ interface SecretCase<S = any> {
   def: GameDef<S, any, any>;
   setup(n: number): S;
   secrets(s: S, owner: string): string[];
+  from?(s: S, owner: string): string[];
 }
 
 const NOW = 10_000;
@@ -21,8 +24,7 @@ function leaks<S>(c: SecretCase<S>, n: number): string[] {
   for (const owner of pidsOf(n)) {
     const secrets = c.secrets(s, owner);
     if (secrets.length === 0) found.push(`${owner}: keine Geheimnisse deklariert`);
-    for (const x of pidsOf(n)) {
-      if (x === owner) continue;
+    for (const x of c.from ? c.from(s, owner) : pidsOf(n).filter((p) => p !== owner)) {
       const json = JSON.stringify(c.def.view(s, x, NOW));
       for (const secret of secrets) if (json.includes(secret)) found.push(`${x} sieht "${secret}" von ${owner}`);
     }
@@ -53,6 +55,28 @@ function fixture(leak: boolean): SecretCase<FixState> {
     def,
     setup: (n) => ({ words: Object.fromEntries(pidsOf(n).map((pid) => [pid, `GEHEIM_${pid.toUpperCase()}`])) }),
     secrets: (s, owner) => (s.words[owner] === undefined ? [] : [s.words[owner]]),
+  };
+}
+
+const TEAM = ['p0', 'p1'];
+
+function teamFixture(leakOutside: boolean, withFrom: boolean): SecretCase<FixState> {
+  const base = fixture(false);
+  const def: GameDef<FixState, never, unknown> = {
+    ...base.def,
+    view: (s, pid) => ({
+      words: Object.fromEntries(
+        Object.entries(s.words).filter(([p]) => leakOutside || (TEAM.includes(pid) && TEAM.includes(p)) || p === pid),
+      ),
+    }),
+  };
+  return {
+    def,
+    setup: base.setup,
+    secrets: base.secrets,
+    ...(withFrom
+      ? { from: (_s: FixState, owner: string) => pidsOf(5).filter((p) => p !== owner && !(TEAM.includes(owner) && TEAM.includes(p))) }
+      : {}),
   };
 }
 
@@ -96,7 +120,107 @@ function stoppRun(n: number) {
   }, start(stopp, n));
 }
 
+const tipOf = (i: number): boolean => i % 2 === 0;
+const tickAll = <S>(def: GameDef<S, any, any>, s: S, at: number, n: number): S => def.tick(s, at, new Set(pidsOf(n)));
+
+function luegenbaronAt(n: number, phase: 'tell' | 'vote', explicit: boolean): LbState {
+  let s = start(luegenbaron, n);
+  const nar = s.narrators[0] as string;
+  if (explicit) {
+    const i = luegenbaron.parseInput({ a: 'mode', k: 0, truth: true });
+    if (i === null) throw new Error('ungueltig');
+    s = luegenbaron.input(s, nar, i, NOW);
+  }
+  s = tickAll(luegenbaron, s, s.endsAt, n);
+  if (phase === 'tell') return s;
+  s = tickAll(luegenbaron, s, s.endsAt, n);
+  return pidsOf(n)
+    .filter((pid) => pid !== nar)
+    .reduce((q, pid, i) => {
+      const t = luegenbaron.parseInput({ a: 'tip', k: 0, truth: tipOf(i) });
+      if (t === null) throw new Error('ungueltig');
+      return luegenbaron.input(q, pid, t, NOW);
+    }, s);
+}
+
+const SECRET_WORD = 'GEHEIMWORT';
+
+function verraeterAt(n: number, phase: 'word' | 'vote', same = false): VrState {
+  let s = start(verraeter, n);
+  for (let seed = 11; n === 2 && s.same !== same; seed++) s = verraeter.init(players(n), seed, NOW, { speed: 1, drinking: false });
+  s =
+    n === 2
+      ? { ...s, words: same ? { p0: 'EINWORT', p1: 'EINWORT' } : { p0: 'WORTEINS', p1: 'WORTZWEI' } }
+      : { ...s, words: Object.fromEntries(s.pids.filter((p) => p !== s.traitor).map((p) => [p, SECRET_WORD])) };
+  if (phase === 'word') return s;
+  while (s.phase !== 'vote') s = tickAll(verraeter, s, s.endsAt, n);
+  return pidsOf(n).reduce((q, pid, i) => {
+    const raw = n === 2 ? { a: 'tip', same: tipOf(i) } : { a: 'vote', to: pidsOf(n)[(i + 1) % n] };
+    const x = verraeter.parseInput(raw);
+    if (x === null) throw new Error('ungueltig');
+    return verraeter.input(q, pid, x, NOW);
+  }, s);
+}
+
+const vrOthers = (s: VrState, owner: string): string[] =>
+  s.mode === 'duo' || owner === s.traitor ? s.pids.filter((p) => p !== owner) : [s.traitor as string];
+
+const vrWordSecrets = (s: VrState, owner: string): string[] =>
+  s.mode === 'duo'
+    ? ['"same', '"pair', '"words', ...(s.same ? [] : [s.words[owner] as string])]
+    : owner === s.traitor
+      ? ['"traitor', '"cat"', '"pair', '"decoys', '"role', 'Kategorie']
+      : [SECRET_WORD];
+
 const SECRET_CASES: SecretCase[] = [
+  {
+    name: 'luegenbaron Tippphase (Wahrheitsfeld, Seed-Standard, Tipp-Map)',
+    def: luegenbaron,
+    setup: (n) => luegenbaronAt(n, 'vote', true),
+    secrets: (s: LbState, owner) =>
+      owner === s.narrators[0]
+        ? ['"truth":', `"truth":[${s.truth[0]}`, '"dflt"', '"mode"']
+        : ['"tips"', `${quoted(owner)}:[${tipOf(s.pids.filter((p) => p !== s.narrators[0]).indexOf(owner))}`],
+  },
+  {
+    name: 'luegenbaron Erzaehlen mit vom Seed gewaehltem Modus',
+    def: luegenbaron,
+    setup: (n) => luegenbaronAt(n, 'tell', false),
+    secrets: (s: LbState, owner) =>
+      owner === s.narrators[0] ? ['"truth":', `"truth":[${s.truth[0]}`, '"dflt"', '"mode"'] : ['"tips"'],
+  },
+  {
+    name: 'verraeter Wortphase (Wort nur vor dem Verraeter verborgen, Rolle und Koeder)',
+    def: verraeter,
+    setup: (n) => verraeterAt(n, 'word'),
+    secrets: vrWordSecrets,
+    from: vrOthers,
+  },
+  {
+    name: 'verraeter Wortphase, zu zweit mit gleichem Wort ist das Wort kein Geheimnis',
+    def: verraeter,
+    setup: (n) => verraeterAt(n, 'word', true),
+    secrets: vrWordSecrets,
+    from: vrOthers,
+  },
+  {
+    name: 'verraeter Abstimmung (Wort vor dem Verraeter)',
+    def: verraeter,
+    setup: (n) => verraeterAt(n, 'vote'),
+    secrets: vrWordSecrets,
+    from: vrOthers,
+  },
+  {
+    name: 'verraeter Abstimmung (Stimmen und Tipps der anderen)',
+    def: verraeter,
+    setup: (n) => verraeterAt(n, 'vote'),
+    secrets: (s: VrState, owner) => {
+      const i = s.pids.indexOf(owner);
+      return s.mode === 'duo'
+        ? ['"tips"', `${quoted(owner)}:${tipOf(i)}`]
+        : ['"votes"', `${quoted(owner)}:${quoted(s.pids[(i + 1) % s.pids.length] as string)}`];
+    },
+  },
   {
     name: 'bombe Pumpphase (Platzpunkte roh, Pumpstand des Besitzers)',
     def: bombe,
@@ -144,6 +268,24 @@ describe('leaks (Positiv- und Negativkontrolle)', () => {
   it('ein Fixture ohne deklarierte Geheimnisse fällt auf statt still grün zu sein', () => {
     const empty: SecretCase<FixState> = { ...fixture(false), secrets: () => [] };
     expect(leaks(empty, 3).length).toBeGreaterThan(0);
+  });
+
+  it('from: ohne from meldet ein Team-Fixture das legitim geteilte Geheimnis, mit from nichts', () => {
+    expect(leaks(teamFixture(false, false), 5).length).toBeGreaterThan(0);
+    expect(leaks(teamFixture(false, true), 5)).toEqual([]);
+  });
+
+  it('from: ein Leck ausserhalb des erlaubten Kreises faellt trotz from auf', () => {
+    const found = leaks(teamFixture(true, true), 5);
+    expect(found.length).toBeGreaterThan(0);
+    expect(found).toContain('p3 sieht "GEHEIM_P0" von p0');
+    expect(found.every((f) => !f.startsWith('p1 sieht "GEHEIM_P0"'))).toBe(true);
+  });
+
+  it('from darf nur eine Teilmenge pruefen: ein Spieler ausserhalb der Liste wird nicht gemeldet', () => {
+    const c = teamFixture(true, true);
+    expect(leaks(c, 5)).not.toContain('p1 sieht "GEHEIM_P0" von p0');
+    expect(leaks({ ...c, from: () => [] }, 5).filter((f) => f.includes('sieht'))).toEqual([]);
   });
 
   it('der eigene Besitzer darf sein Geheimnis sehen', () => {

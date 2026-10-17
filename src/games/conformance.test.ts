@@ -7,8 +7,10 @@ import { bombe } from './bombe/logic';
 import { farbfalle } from './farbfalle/logic';
 import { gleichklang } from './gleichklang/logic';
 import { hammer } from './hammer/logic';
+import { luegenbaron, type LbState } from './luegenbaron/logic';
 import { schaetzfuchs } from './schaetzfuchs/logic';
 import { stopp } from './stopp/logic';
+import { verraeter, type VrState } from './verraeter/logic';
 import { werwuerde } from './werwuerde/logic';
 import type { GameDef } from './types';
 
@@ -20,6 +22,40 @@ interface Case {
 }
 
 const blitzInputs = [0, 1, 2].map((i) => ({ i, ms: 300 + i }));
+
+function fastForward<S extends { phase: string }>(
+  def: GameDef<S, any, any>,
+  s: S,
+  now: number,
+  found: (q: S) => boolean,
+): { s: S; now: number } {
+  const online = new Set((s as unknown as { pids: string[] }).pids);
+  let q = s;
+  let t = now;
+  while (!def.done(q, t) && t < now + 130_000) {
+    t += TICK;
+    q = def.tick(q, t, online);
+    if (found(q)) return { s: q, now: t };
+  }
+  return { s, now };
+}
+
+const lbCase: Case = {
+  def: luegenbaron,
+  first: (s: LbState) => ({ a: 'tip', k: s.k, truth: true }),
+  finish: (s: LbState) => [{ a: 'tip', k: s.k, truth: true }],
+  prep: (s: LbState, now) =>
+    fastForward(luegenbaron, s, now, (q) => q.phase === 'vote' && !['p0', 'p1'].includes(q.narrators[q.k] as string)),
+};
+
+const vote = (pid: string) => ({ a: 'vote', to: pid === 'p0' ? 'p1' : 'p0' });
+const vrCase: Case = {
+  def: verraeter,
+  first: (s: VrState, pid) => (s.mode === 'duo' ? { a: 'tip', same: true } : vote(pid)),
+  finish: (s: VrState, pid) => [s.mode === 'duo' ? { a: 'tip', same: true } : vote(pid)],
+  prep: (s: VrState, now) => fastForward(verraeter, s, now, (q) => q.phase === 'vote'),
+};
+
 const CASES: Case[] = [
   { def: blitz, first: () => blitzInputs[0], finish: () => blitzInputs },
   { def: hammer, first: () => ({ n: 12, final: true }), finish: () => [{ n: 12, final: true }] },
@@ -33,6 +69,8 @@ const CASES: Case[] = [
     finish: () => [0, 1, 2].map((b) => ({ b, n: 2, cash: true })),
   },
   { def: stopp, first: () => ({ k: 0, devMs: 300 }), finish: () => [{ k: 0, devMs: 300 }] },
+  lbCase,
+  vrCase,
 ];
 
 const GARBAGE: unknown[] = [
@@ -200,6 +238,35 @@ for (const c of CASES)
         expect(badDrinks(c.def.drinks(end.s), pidsOf(4))).toEqual([]);
       });
     });
+
+describe('Rollenspiele: prep spult bis in eine Tipp- bzw. Abstimmungsphase, in der p0 und p1 eingeben duerfen', () => {
+  for (const c of [lbCase, vrCase])
+    for (const speed of SPEEDS)
+      it(`${c.def.id} findet die Phase fuer 3 Spieler (speed ${speed})`, () => {
+        const { s } = begin(c, 3, speed);
+        expect(s.phase).toBe('vote');
+        if (c === lbCase) expect(['p0', 'p1']).not.toContain(s.narrators[s.k]);
+        const v = c.def.view(s, 'p0', NOW) as { phase: string };
+        expect(v.phase).toBe('vote');
+        expect(() => parsed(c.def, c.first(s, 'p0'))).not.toThrow();
+        expect(c.def.input(s, 'p0', parsed(c.def, c.first(s, 'p0')), NOW)).not.toBe(s);
+        expect(c.def.input(s, 'p1', parsed(c.def, c.first(s, 'p1')), NOW)).not.toBe(s);
+      });
+
+  it('verraeter zu zweit: prep landet in der Tipp-Phase', () => {
+    const { s } = begin(vrCase, 2, 1);
+    expect(s.phase).toBe('vote');
+    expect(s.mode).toBe('duo');
+  });
+
+  it('ohne passende Phase (luegenbaron n=2, verraeter n=1) bleibt der Zustand unveraendert', () => {
+    const a = begin(lbCase, 2, 1);
+    expect(a.s.phase).toBe('card');
+    const b = begin(vrCase, 1, 1);
+    expect(b.s.phase).toBe('word');
+    expect(b.now).toBe(NOW);
+  });
+});
 
 describe('Pruefung (c) badDrinks erkennt Verstoesse', () => {
   const known = ['a', 'b'];
