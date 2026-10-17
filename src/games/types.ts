@@ -25,3 +25,16 @@ export interface GameDef<S, I, V> {
   label(s: S, pid: string): string;
   view(s: S, pid: string, now: number): V;
 }
+
+export interface ViewCtx {
+  me: string;
+  toLocal(hostT: number): number;
+  reducedMotion: boolean;
+}
+
+export interface Mounted<V> {
+  update(v: V): void;
+  destroy(): void;
+}
+
+export type Render<V, I> = (root: HTMLElement, v: V, send: (p: I) => void, ctx: ViewCtx) => Mounted<V>;

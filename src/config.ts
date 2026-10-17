@@ -23,3 +23,16 @@ export function parseFlags(search: string): Flags {
     only: dev ? GAME_IDS.find((id) => id === only) : undefined,
   };
 }
+
+const JOIN_KEYS = ['net', 'dev', 'fast'];
+
+export function joinUrl(origin: string, base: string, search: string, code: string): string {
+  const src = new URLSearchParams(search);
+  const q = new URLSearchParams();
+  for (const k of JOIN_KEYS) {
+    const v = src.get(k);
+    if (v !== null) q.set(k, v);
+  }
+  const qs = q.toString();
+  return `${origin}${base}${qs ? `?${qs}` : ''}#/j/${code}`;
+}

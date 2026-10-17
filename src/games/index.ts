@@ -7,3 +7,7 @@ import type { GameDef, GameId } from './types';
 export { GAME_IDS } from './types';
 
 export const GAMES: Record<GameId, GameDef<any, any, any>> = { blitz, hammer, farbfalle, schaetzfuchs };
+
+export function gamesFor(only?: GameId): Record<string, GameDef<any, any, any>> {
+  return only ? { [only]: GAMES[only] } : GAMES;
+}

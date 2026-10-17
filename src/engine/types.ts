@@ -47,3 +47,6 @@ export type HostAction =
   | { a: 'lobby'; seed: number };
 
 export type HelloResult = { ok: true; pid: string } | { ok: false; reason: RejectReason };
+
+export type Every = (ms: number, fn: () => void) => () => void;
+export type After = (ms: number, fn: () => void) => () => void;
