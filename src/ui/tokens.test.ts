@@ -19,6 +19,8 @@ const TOKENS_CSS = readFileSync(join(SRC, 'ui/tokens.css'), 'utf8');
 const tokens = new Map<string, string>();
 for (const m of TOKENS_CSS.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) tokens.set(m[1] as string, (m[2] as string).trim());
 
+const PX = /(^|[^\w.])-?\d*\.?\d+px\b/;
+
 function offenders(files: string[], re: RegExp): string[] {
   const out: string[] = [];
   for (const f of files)
@@ -63,7 +65,7 @@ describe('Wächter: Rohwerte', () => {
   });
 
   it('kein px-Literal außerhalb von tokens.css', () => {
-    expect(offenders(OTHER, /(^|[^\w.-])\d*\.?\d+px\b/)).toEqual([]);
+    expect(offenders(OTHER, PX)).toEqual([]);
   });
 
   it('jede var(--x) ist definiert', () => {
@@ -81,9 +83,13 @@ describe('Wächter: Rohwerte', () => {
   });
 
   it('der Wächter erkennt Verstöße', () => {
-    const re = /(^|[^\w.-])\d*\.?\d+px\b/;
-    expect(re.test('margin: 3px')).toBe(true);
-    expect(re.test('translate(var(--s4))')).toBe(false);
+    expect(PX.test('margin: 3px')).toBe(true);
+    expect(PX.test('margin: -6px')).toBe(true);
+    expect(PX.test('translate(-3px, 0)')).toBe(true);
+    expect(PX.test('margin: 0 -.5px')).toBe(true);
+    expect(PX.test('translate(var(--s4))')).toBe(false);
+    expect(PX.test('--a: calc(var(--s2) - var(--s1))')).toBe(false);
+    expect(PX.test('width: 100%')).toBe(false);
     expect(/#[0-9a-fA-F]{3,8}\b/.test('color: #c6ff00')).toBe(true);
     expect(/#[0-9a-fA-F]{3,8}\b/.test("'#/j/'")).toBe(false);
   });
@@ -108,6 +114,7 @@ function contrast(a: string, b: string): number {
 
 describe('Kontrast', () => {
   const onAccent = tokens.get('--on-accent') ?? '';
+  const FF = ['--ff-rot', '--ff-blau', '--ff-gelb', '--ff-weiss'];
   const names = [...Array.from({ length: 8 }, (_, i) => `--p${i}`), '--lime', '--hot', '--cyan', '--orange', '--ok', '--warn', '--bad'];
 
   it('--on-accent ist ein Hex-Wert', () => {
@@ -115,6 +122,13 @@ describe('Kontrast', () => {
   });
 
   for (const n of names)
+    it(`${n} trägt --on-accent mit Kontrast >= 4.5`, () => {
+      const v = tokens.get(n) ?? '';
+      expect(v).toMatch(/^#[0-9a-f]{3,6}$/i);
+      expect(contrast(v, onAccent)).toBeGreaterThanOrEqual(4.5);
+    });
+
+  for (const n of FF)
     it(`${n} trägt --on-accent mit Kontrast >= 4.5`, () => {
       const v = tokens.get(n) ?? '';
       expect(v).toMatch(/^#[0-9a-f]{3,6}$/i);

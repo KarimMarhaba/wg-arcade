@@ -5,6 +5,8 @@ import { GAME_IDS } from './types';
 const read = (f: string) => readFileSync(new URL(`./${f}`, import.meta.url), 'utf8');
 const FILES = [
   ...GAME_IDS.map((id) => `${id}/logic.ts`),
+  ...GAME_IDS.map((id) => `${id}/play.ts`),
+  'resume.ts',
   'schaetzfuchs/questions.ts',
   'colors.ts',
   'common.ts',

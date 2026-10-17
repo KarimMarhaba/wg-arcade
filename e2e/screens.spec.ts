@@ -1,7 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { joinByUrl, openHost, readCode, screen, tid, url, watchErrors, type Run } from './helpers';
+import { audit, joinByUrl, openHost, readCode, screen, tid, url, watchErrors, type Run } from './helpers';
 
-const SHOTS = 'test-results/screens';
 const LONG_NAME = 'WWWWWWWWWWWW';
 const LONG_NAME_2 = 'MMMMMMMMMMMM';
 
@@ -11,37 +10,6 @@ declare global {
     feel: { ctx: number; wl: number; rel: number };
     anims: { name: string; pid: string | undefined }[];
   }
-}
-
-async function audit(page: Page, name: string, shot: string = name): Promise<void> {
-  await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  const r = await page.evaluate((n) => {
-    const root = document.querySelector<HTMLElement>(`[data-screen=${n}]`);
-    const small = [...document.querySelectorAll('button')]
-      .filter((b) => {
-        const box = b.getBoundingClientRect();
-        return box.width > 0 && box.height > 0 && getComputedStyle(b).visibility !== 'hidden';
-      })
-      .filter((b) => b.getBoundingClientRect().height < 55.5)
-      .map((b) => b.dataset.testid ?? b.textContent ?? '?');
-    return {
-      screens: document.querySelectorAll('[data-screen]').length,
-      found: root !== null,
-      docOver: document.documentElement.scrollWidth - window.innerWidth,
-      rootOver: root ? root.scrollWidth - root.clientWidth : 0,
-      small,
-    };
-  }, name);
-  expect(r, `Screen ${shot}`).toEqual({ screens: 1, found: true, docOver: 0, rootOver: 0, small: [] });
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((a) => Number(a.effect?.getTiming().duration) <= 1_000 && a.effect?.getTiming().iterations !== Infinity)
-        .map((a) => a.finished.catch(() => undefined)),
-    ).then(() => undefined),
-  );
-  await page.screenshot({ path: `${SHOTS}/${shot}.png` });
 }
 
 const WATCH_CONFETTI = (): void => {
