@@ -39,11 +39,16 @@ function host(code: string): Promise<HostEndpoint> {
     const peer = new Peer(PREFIX + code, OPTIONS);
     const arrivals = createEmitter<[Conn]>();
     let settled = false;
+    let gone = false;
+    const destroy = (): void => {
+      gone = true;
+      peer.destroy();
+    };
     const fail = (e: Error): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      peer.destroy();
+      destroy();
       reject(e);
     };
     const timer = setTimeout(() => fail(new Error('timeout')), CONNECT_TIMEOUT);
@@ -52,11 +57,11 @@ function host(code: string): Promise<HostEndpoint> {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve({ code, onConnection: arrivals.on, close: () => peer.destroy() });
+      resolve({ code, onConnection: arrivals.on, close: destroy });
     });
     peer.on('error', (err) => fail(new Error(err.type === 'unavailable-id' ? 'taken' : err.type)));
     peer.on('disconnected', () => {
-      if (!peer.destroyed) peer.reconnect();
+      if (!gone && !peer.destroyed) peer.reconnect();
     });
     peer.on('connection', (dc) => {
       dc.on('open', () => arrivals.emit(wrap(dc, () => {})));

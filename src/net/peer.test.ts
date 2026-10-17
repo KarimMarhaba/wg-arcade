@@ -39,6 +39,7 @@ const h = vi.hoisted(() => {
       FakePeer.all.push(this);
     }
     destroy(): void {
+      this.emit('disconnected');
       this.destroyed = true;
     }
     reconnect(): void {
@@ -120,6 +121,21 @@ describe('peer: host', () => {
     peer.destroyed = true;
     peer.emit('disconnected');
     expect(peer.reconnects).toBe(1);
+  });
+
+  it('close() und Fehlschlag lösen beim destroy() kein reconnect aus', async () => {
+    const p = createPeerTransport().host('ABCD');
+    const peer = last();
+    peer.emit('open', 'x');
+    const ep = await p;
+    ep.close();
+    expect(peer.reconnects).toBe(0);
+
+    const q = createPeerTransport().host('EFGH');
+    const failing = last();
+    failing.emit('error', { type: 'network' });
+    await expect(q).rejects.toMatchObject({ message: 'network' });
+    expect(failing.reconnects).toBe(0);
   });
 
   it('meldet eine Conn erst beim open der DataConnection, verwirft Nicht-Strings', async () => {
