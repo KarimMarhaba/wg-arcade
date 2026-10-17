@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const read = (f: string) => readFileSync(new URL(`./${f}`, import.meta.url), 'utf8');
-const PURE = ['party', 'rounds', 'scoring', 'durations', 'types'];
+const PURE = ['party', 'rounds', 'scoring', 'durations', 'types', 'drinks'];
 
 describe('Engine-Reinheit', () => {
   for (const f of PURE)

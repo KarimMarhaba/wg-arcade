@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GRACE } from '../engine/durations';
+import { GRACE, TICK } from '../engine/durations';
+import { DRINK_CAP, type RawDrinks } from '../engine/drinks';
 import { blitz } from './blitz/logic';
 import { farbfalle } from './farbfalle/logic';
 import { hammer } from './hammer/logic';
@@ -8,14 +9,17 @@ import type { GameDef } from './types';
 
 interface Case {
   def: GameDef<any, any, any>;
-  finish: unknown[];
+  first(s: any, pid: string): unknown;
+  finish(s: any, pid: string): unknown[];
+  prep?(s: any, now: number): { s: any; now: number };
 }
 
+const blitzInputs = [0, 1, 2].map((i) => ({ i, ms: 300 + i }));
 const CASES: Case[] = [
-  { def: blitz, finish: [0, 1, 2].map((i) => ({ i, ms: 300 + i })) },
-  { def: hammer, finish: [{ n: 12, final: true }] },
-  { def: farbfalle, finish: [{ i: 0, c: 1 }, { done: true }] },
-  { def: schaetzfuchs, finish: [{ guess: 123456 }] },
+  { def: blitz, first: () => blitzInputs[0], finish: () => blitzInputs },
+  { def: hammer, first: () => ({ n: 12, final: true }), finish: () => [{ n: 12, final: true }] },
+  { def: farbfalle, first: () => ({ i: 0, c: 1 }), finish: () => [{ i: 0, c: 1 }, { done: true }] },
+  { def: schaetzfuchs, first: () => ({ guess: 123456 }), finish: () => [{ guess: 123456 }] },
 ];
 
 const GARBAGE: unknown[] = [
@@ -39,80 +43,154 @@ const GARBAGE: unknown[] = [
 ];
 
 const players = (n: number) => Array.from({ length: n }, (_, i) => ({ pid: `p${i}`, name: `P${i}`, color: i }));
+const pidsOf = (n: number) => players(n).map((p) => p.pid);
 const NOW = 10_000;
 const SPEEDS = [1, 10];
+const NS = [1, 2, 3, 8];
+const maxMs = (speed: number) => 120_000 / speed + GRACE;
+
 const parsed = (def: Case['def'], raw: unknown) => {
   const i = def.parseInput(raw);
   if (i === null) throw new Error(`${def.id}: Eingabe abgelehnt`);
   return i;
 };
+const begin = (c: Case, n: number, speed: number): { s: any; now: number } => {
+  const s = c.def.init(players(n), 77, NOW, { speed, drinking: false });
+  return c.prep ? c.prep(s, NOW) : { s, now: NOW };
+};
 const feed = (c: Case, s: unknown, pid: string, now = NOW) =>
-  c.finish.reduce((q, raw) => c.def.input(q, pid, parsed(c.def, raw), now), s);
+  c.finish(s, pid).reduce((q, raw) => c.def.input(q, pid, parsed(c.def, raw), now), s);
+
+function runToEnd(def: Case['def'], s0: unknown, t0: number, online: ReadonlySet<string>, limit: number) {
+  let s = s0;
+  let t = t0;
+  while (!def.done(s, t) && t < limit) {
+    t += TICK;
+    s = def.tick(s, t, online);
+  }
+  return { s, t, done: def.done(s, t) };
+}
+
+function badDrinks(raw: RawDrinks, known: readonly string[]): string[] {
+  const rows = 'cheers' in raw && 'rows' in raw ? (raw as { rows: Record<string, unknown> }).rows : raw;
+  const bad: string[] = [];
+  for (const [pid, d] of Object.entries(rows as Record<string, { take: unknown; give: unknown }>)) {
+    if (!known.includes(pid)) bad.push(`unbekannte pid ${pid}`);
+    for (const k of ['take', 'give'] as const) {
+      const v = d[k];
+      if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) bad.push(`${pid}.${k} = ${String(v)}`);
+    }
+  }
+  return bad;
+}
 
 for (const c of CASES)
   for (const speed of SPEEDS)
     describe(`${c.def.id} (speed ${speed}) erfuellt den GameDef-Vertrag`, () => {
-      const init = (n = 3) => c.def.init(players(n), 77, NOW, { speed });
+      const init = (n = 3) => begin(c, n, speed);
 
       it('parseInput wirft nie und lehnt Muell ab', () => {
         for (const g of GARBAGE) {
           expect(() => c.def.parseInput(g)).not.toThrow();
           expect(c.def.parseInput(g)).toBeNull();
         }
-        for (const raw of c.finish) expect(c.def.parseInput(raw)).not.toBeNull();
+        const { s } = init();
+        for (const raw of c.finish(s, 'p0')) expect(c.def.parseInput(raw)).not.toBeNull();
+      });
+
+      it('init wirft fuer 1 bis 8 Spieler nicht', () => {
+        for (let n = 1; n <= 8; n++) expect(() => begin(c, n, speed), `n=${n}`).not.toThrow();
       });
 
       it('ignorierte Eingaben und No-op-tick liefern dieselbe Referenz', () => {
-        const s0 = init();
-        const online = new Set(['p0', 'p1', 'p2']);
-        const first = parsed(c.def, c.finish[0]);
-        expect(c.def.input(s0, 'zz', first, NOW)).toBe(s0);
-        expect(c.def.tick(s0, NOW + 1, online)).toBe(s0);
-        const s1 = c.def.input(s0, 'p0', first, NOW);
+        const { s: s0, now } = init();
+        const online = new Set(pidsOf(3));
+        const first = parsed(c.def, c.first(s0, 'p0'));
+        expect(c.def.input(s0, 'zz', first, now)).toBe(s0);
+        expect(c.def.tick(s0, now + 1, online)).toBe(s0);
+        const s1 = c.def.input(s0, 'p0', first, now);
         expect(s1).not.toBe(s0);
-        expect(c.def.input(s1, 'p0', first, NOW)).toBe(s1);
-        expect(c.def.tick(s1, NOW + 1, online)).toBe(s1);
+        expect(c.def.input(s1, 'p0', first, now)).toBe(s1);
+        expect(c.def.tick(s1, now + 1, online)).toBe(s1);
       });
 
       it('input und tick veraendern den Eingangs-State nicht', () => {
-        const s0 = init();
+        const { s: s0, now } = init();
         const before = structuredClone(s0);
-        const s1 = c.def.input(s0, 'p0', parsed(c.def, c.finish[0]), NOW);
+        const s1 = c.def.input(s0, 'p0', parsed(c.def, c.first(s0, 'p0')), now);
         expect(s0).toEqual(before);
-        const done = feed(c, feed(c, s0, 'p0'), 'p1');
+        const done = feed(c, feed(c, s0, 'p0', now), 'p1', now);
         const clone = structuredClone(done);
-        const ticked = c.def.tick(done, NOW + 1, new Set(['p0', 'p1']));
+        const ticked = c.def.tick(done, now + 1, new Set(['p0', 'p1']));
         expect(done).toEqual(clone);
         expect(ticked).not.toBe(done);
-        expect(c.def.done(s1, NOW + 1)).toBe(false);
+        expect(c.def.done(s1, now + 1)).toBe(false);
       });
 
       it('view ist bei gleichem State und anderem now JSON-gleich', () => {
-        const s = feed(c, init(), 'p0');
+        const { s: s0, now } = init();
+        const s = feed(c, s0, 'p0', now);
         for (const pid of ['p0', 'p1', 'zz'])
-          expect(JSON.stringify(c.def.view(s, pid, NOW))).toBe(JSON.stringify(c.def.view(s, pid, NOW + 777)));
+          expect(JSON.stringify(c.def.view(s, pid, now))).toBe(JSON.stringify(c.def.view(s, pid, now + 777)));
       });
 
       it('view und label werfen nicht fuer eine unbekannte pid', () => {
-        const s = init();
-        expect(() => c.def.view(s, 'zz', NOW)).not.toThrow();
+        const { s, now } = init();
+        expect(() => c.def.view(s, 'zz', now)).not.toThrow();
         expect(c.def.label(s, 'zz')).toBe('–');
       });
 
       it('Spieler ohne Eingabe: kein result-Eintrag, Label "–"', () => {
-        const s = feed(c, init(), 'p0');
+        const { s: s0, now } = init();
+        const s = feed(c, s0, 'p0', now);
         expect(c.def.result(s).has('p0')).toBe(true);
         expect(c.def.result(s).has('p1')).toBe(false);
         expect(c.def.label(s, 'p1')).toBe('–');
-        expect(c.def.result(init()).size).toBe(0);
+        expect(c.def.result(s0).size).toBe(0);
       });
 
-      it('Sicht mit 8 Teilnehmern bleibt unter 6000 Zeichen', () => {
-        let s = init(8);
-        for (const p of players(8)) s = feed(c, s, p.pid);
-        const sizes = players(8).map((p) => JSON.stringify(c.def.view(s, p.pid, NOW)).length);
-        expect(Math.max(...sizes)).toBeLessThan(6000);
-        const revealed = c.def.tick(s, NOW + GRACE * 100, new Set(players(8).map((p) => p.pid)));
-        for (const p of players(8)) expect(JSON.stringify(c.def.view(revealed, p.pid, NOW)).length).toBeLessThan(6000);
+      it('Sicht mit 8 Teilnehmern bleibt unter 6000 Zeichen, vor und nach der Aufloesung', () => {
+        const { s: s0, now } = init(8);
+        let s = s0;
+        for (const p of players(8)) s = feed(c, s, p.pid, now);
+        const all = new Set(pidsOf(8));
+        const sizes = (q: unknown) => pidsOf(8).map((pid) => JSON.stringify(c.def.view(q, pid, now)).length);
+        expect(Math.max(...sizes(s))).toBeLessThan(6000);
+        const end = runToEnd(c.def, s, now, all, now + maxMs(speed));
+        expect(end.done).toBe(true);
+        expect(Math.max(...sizes(end.s))).toBeLessThan(6000);
+      });
+
+      for (const n of NS)
+        it(`ohne jede Eingabe endet das Spiel mit ${n} Spieler(n) spaetestens nach maxMs`, () => {
+          const { s, now } = begin(c, n, speed);
+          const end = runToEnd(c.def, s, now, new Set(pidsOf(n)), NOW + maxMs(speed));
+          expect(end.done, `n=${n} nicht fertig bis ${maxMs(speed)} ms`).toBe(true);
+          expect(end.t).toBeLessThanOrEqual(NOW + maxMs(speed));
+          expect(c.def.result(end.s).size).toBe(0);
+        });
+
+      it('drinks (falls vorhanden) liefert nur bekannte pids und ganzzahlige Werte >= 0', () => {
+        if (!c.def.drinks) return;
+        const { s, now } = begin(c, 4, speed);
+        const end = runToEnd(c.def, feed(c, s, 'p0', now), now, new Set(pidsOf(4)), NOW + maxMs(speed));
+        expect(badDrinks(c.def.drinks(end.s), pidsOf(4))).toEqual([]);
       });
     });
+
+describe('Pruefung (c) badDrinks erkennt Verstoesse', () => {
+  const known = ['a', 'b'];
+
+  it('sauber: Record und DrinkPlan ohne Befund', () => {
+    expect(badDrinks({ a: { take: 1, give: 0 } }, known)).toEqual([]);
+    expect(badDrinks({ rows: { a: { take: 3, give: 2 } }, cheers: false }, known)).toEqual([]);
+    expect(badDrinks({ rows: {}, cheers: true }, known)).toEqual([]);
+    expect(DRINK_CAP).toBe(3);
+  });
+
+  it('Befund bei unbekannter pid, Bruch, negativ, NaN', () => {
+    expect(badDrinks({ x: { take: 1, give: 0 } }, known)).toHaveLength(1);
+    expect(badDrinks({ a: { take: 1.5, give: -1 } }, known)).toHaveLength(2);
+    expect(badDrinks({ rows: { a: { take: Number.NaN, give: 0 } }, cheers: false }, known)).toHaveLength(1);
+  });
+});

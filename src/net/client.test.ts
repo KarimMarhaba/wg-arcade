@@ -16,6 +16,7 @@ const view = (tag: string): View => ({
   isHost: false,
   code: 'ABCD',
   players: [{ pid: PID, name: tag, color: 0, online: true, total: 0, host: false }],
+  drinking: false,
   rounds: 5,
   canStart: false,
   min: 2,

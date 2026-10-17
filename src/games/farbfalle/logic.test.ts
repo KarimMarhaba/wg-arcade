@@ -5,7 +5,7 @@ import { farbfalle, type FarbfalleState } from './logic';
 const PLAYERS = [0, 1, 2].map((i) => ({ pid: `p${i}`, name: `P${i}`, color: i }));
 const NOW = 2000;
 const SPEEDS = [1, 10];
-const make = (speed = 1, seed = 9): FarbfalleState => farbfalle.init(PLAYERS, seed, NOW, { speed });
+const make = (speed = 1, seed = 9): FarbfalleState => farbfalle.init(PLAYERS, seed, NOW, { speed, drinking: false });
 const hit = (s: FarbfalleState, pid: string, raw: unknown, now = NOW): FarbfalleState => {
   const i = farbfalle.parseInput(raw);
   if (i === null) throw new Error('ungueltig');

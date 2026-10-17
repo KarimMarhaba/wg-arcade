@@ -3,7 +3,7 @@ import { GAME_IDS, type GameId } from './types';
 import { fallbackRender, renderFor, VIEWS } from './views';
 
 describe('VIEWS', () => {
-  it('deckt alle vier Spiele ab', () => {
+  it('deckt jede GameId mit einer eigenen Sicht ab', () => {
     expect(Object.keys(VIEWS).sort()).toEqual([...GAME_IDS].sort());
     for (const id of GAME_IDS) {
       expect(typeof VIEWS[id]).toBe('function');

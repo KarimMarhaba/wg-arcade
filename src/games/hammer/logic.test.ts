@@ -5,7 +5,7 @@ import { hammer, type HammerState } from './logic';
 const PLAYERS = [0, 1, 2].map((i) => ({ pid: `p${i}`, name: `P${i}`, color: i }));
 const NOW = 500;
 const SPEEDS = [1, 10];
-const make = (speed = 1): HammerState => hammer.init(PLAYERS, 3, NOW, { speed });
+const make = (speed = 1): HammerState => hammer.init(PLAYERS, 3, NOW, { speed, drinking: false });
 const hit = (s: HammerState, pid: string, raw: unknown, now = NOW): HammerState => {
   const i = hammer.parseInput(raw);
   if (i === null) throw new Error('ungueltig');

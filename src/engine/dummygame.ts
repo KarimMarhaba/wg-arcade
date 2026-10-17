@@ -7,6 +7,7 @@ export interface DummyState {
   pids: string[];
   votes: Record<string, number>;
   finished: boolean;
+  drinking: boolean;
 }
 
 export interface DummyView {
@@ -16,7 +17,9 @@ export interface DummyView {
 
 export const DUMMY_MS = 1000;
 
-export function makeDummy(id: GameId): GameDef<DummyState, { v: number }, DummyView> {
+type Extra = Pick<GameDef<DummyState, { v: number }, DummyView>, 'drinkOnly' | 'drinks'>;
+
+export function makeDummy(id: GameId, extra: Extra = {}): GameDef<DummyState, { v: number }, DummyView> {
   return {
     id,
     title: `Dummy ${id}`,
@@ -28,6 +31,7 @@ export function makeDummy(id: GameId): GameDef<DummyState, { v: number }, DummyV
       pids: players.map((p) => p.pid),
       votes: {},
       finished: false,
+      drinking: ctx.drinking,
     }),
     parseInput: (raw) => {
       if (typeof raw !== 'object' || raw === null) return null;
@@ -42,6 +46,7 @@ export function makeDummy(id: GameId): GameDef<DummyState, { v: number }, DummyV
     result: (s) => new Map(Object.entries(s.votes)),
     label: (s, pid) => (pid in s.votes ? `${s.votes[pid]} pt` : '–'),
     view: (s, pid) => ({ mine: s.votes[pid] ?? null, seed: s.seed }),
+    ...extra,
   };
 }
 

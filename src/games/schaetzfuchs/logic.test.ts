@@ -8,7 +8,7 @@ const NOW = 4000;
 const SPEEDS = [1, 10];
 const MARK = 7654321;
 const make = (speed = 1, seed = 4, players = PLAYERS): SchaetzfuchsState =>
-  schaetzfuchs.init(players, seed, NOW, { speed });
+  schaetzfuchs.init(players, seed, NOW, { speed, drinking: false });
 const guess = (s: SchaetzfuchsState, pid: string, g: unknown, now = NOW): SchaetzfuchsState => {
   const i = schaetzfuchs.parseInput({ guess: g });
   if (i === null) throw new Error('ungueltig');

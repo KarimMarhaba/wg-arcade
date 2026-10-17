@@ -3,10 +3,14 @@ import { expect, type BrowserContext, type Locator, type Page } from '@playwrigh
 export interface Run {
   fast?: boolean;
   only?: string;
+  seed?: number;
+  rounds?: number;
 }
 
-export const query = ({ fast = true, only }: Run = {}): string =>
-  `?net=local&dev=1${fast ? '&fast=1' : ''}${only ? `&only=${only}` : ''}`;
+export const query = ({ fast = true, only, seed, rounds }: Run = {}): string =>
+  `?net=local&dev=1${fast ? '&fast=1' : ''}${only ? `&only=${only}` : ''}${seed === undefined ? '' : `&seed=${seed}`}${
+    rounds === undefined ? '' : `&rounds=${rounds}`
+  }`;
 export const url = (hash = '#/', run: Run = {}): string => `./${query(run)}${hash}`;
 
 export const screen = (page: Page, name: string): Locator => page.locator(`[data-screen=${name}]`);

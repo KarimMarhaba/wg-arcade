@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_IDS } from '../games/types';
-import { INTRO, RESULT, scale } from './durations';
+import { DRINK_EXTRA, INTRO, RESULT, scale } from './durations';
 import { type DummyState, DUMMY_MS, dummyRegistry, makeDummy } from './dummygame';
 import { createEngine } from './party';
 import { mix32 } from './prng';
@@ -10,8 +10,8 @@ import type { HostAction, Party, Phase } from './types';
 const eng = createEngine(dummyRegistry());
 const HOST = 'host';
 
-const mk = (o: { dev?: boolean; speed?: number; seed?: number } = {}): Party =>
-  eng.create('ABCD', o.seed ?? 42, HOST, { dev: o.dev ?? false, speed: o.speed ?? 1 });
+const mk = (o: { dev?: boolean; speed?: number; seed?: number; rounds?: number } = {}): Party =>
+  eng.create('ABCD', o.seed ?? 42, HOST, { dev: o.dev ?? false, speed: o.speed ?? 1, rounds: o.rounds });
 const join = (p: Party, pid: string, name = pid, now = 0): Party => eng.hello(p, pid, name, now).p;
 const lobby = (others: string[] = ['a', 'b'], o: Parameters<typeof mk>[0] = {}): Party =>
   others.reduce((p, n) => join(p, n), join(mk(o), HOST, 'Host'));
@@ -41,8 +41,9 @@ const state = (p: Party): DummyState => {
   return p.phase.state as DummyState;
 };
 
-function reachAll(): Record<Phase['k'], { p: Party; t: number }> {
-  const l = eng.control(lobby(['a'], { speed: 10 }), { a: 'rounds', n: 3 }, 0);
+function reachAll(drinking = false): Record<Phase['k'], { p: Party; t: number }> {
+  const base = eng.control(lobby(['a'], { speed: 10 }), { a: 'rounds', n: 3 }, 0);
+  const l = drinking ? eng.control(base, { a: 'drinking', on: true }, 0) : base;
   const intro = { p: eng.control(l, { a: 'start' }, 0), t: 0 };
   const play = advance(intro.p, 0, 'play');
   const result = advance(play.p, play.t, 'result');
@@ -61,10 +62,23 @@ describe('create', () => {
       speed: 10,
       players: [],
       rounds: 5,
+      drinking: false,
       order: [],
       history: [],
       phase: { k: 'lobby' },
     });
+  });
+
+  it('rounds aus den Optionen ersetzt den Default (Dev-Override), auch außerhalb von 3/5/8', () => {
+    for (const n of [1, 2, 7]) expect(mk({ rounds: n }).rounds).toBe(n);
+    expect(mk({ rounds: undefined }).rounds).toBe(5);
+  });
+
+  it('mit rounds=1 besteht die Party aus genau einer Runde', () => {
+    const p = eng.control(lobby(['a'], { rounds: 1, speed: 10 }), { a: 'start' }, 0);
+    expect(p.order).toHaveLength(1);
+    const end = advance(p, 0, 'podium');
+    expect(end.p.history).toHaveLength(1);
   });
 });
 
@@ -236,6 +250,7 @@ describe('control', () => {
       next: ['result'],
       again: ['podium'],
       lobby: ['podium', 'lobby'],
+      drinking: ['lobby'],
     };
     const acts: HostAction[] = [
       { a: 'rounds', n: 8 },
@@ -243,6 +258,7 @@ describe('control', () => {
       { a: 'next' },
       { a: 'again', seed: 5 },
       { a: 'lobby', seed: 5 },
+      { a: 'drinking', on: true },
     ];
     const reached = reachAll();
     for (const act of acts)
@@ -363,6 +379,7 @@ describe('Rundenende', () => {
         places: { host: 3, a: 1, b: 1 },
         points: { host: 2, a: 5, b: 5 },
         labels: { host: '3 pt', a: '9 pt', b: '9 pt' },
+        drinks: null,
       },
     ]);
     expect(p.players.map((x) => x.total)).toEqual([2, 5, 5]);
@@ -447,6 +464,7 @@ describe('Reducer verändern ihre Eingabe nicht', () => {
         () => eng.control(p, { a: 'next' }, t),
         () => eng.control(p, { a: 'again', seed: 3 }, t),
         () => eng.control(p, { a: 'lobby', seed: 3 }, t),
+        () => eng.control(p, { a: 'drinking', on: true }, t),
         () => eng.tick(p, t + 100),
         () => eng.tick(p, t + 100_000),
         () => eng.viewFor(p, 'a', t),
@@ -548,6 +566,203 @@ describe('viewFor', () => {
   it('enthält keine Zeitstempel der Spieler', () => {
     const json = JSON.stringify(eng.viewFor(lobby(), HOST, 0));
     expect(json).not.toContain('lastSeen');
+  });
+});
+
+describe('Trinkmodus: Schalter', () => {
+  it('wirkt nur in der Lobby; ein gleicher Wert gibt dieselbe Referenz', () => {
+    const l = lobby();
+    const on = eng.control(l, { a: 'drinking', on: true }, 0);
+    expect(on).not.toBe(l);
+    expect(on.drinking).toBe(true);
+    expect(eng.control(on, { a: 'drinking', on: true }, 0)).toBe(on);
+    expect(eng.control(l, { a: 'drinking', on: false }, 0)).toBe(l);
+    expect(eng.control(on, { a: 'drinking', on: false }, 0).drinking).toBe(false);
+    expect(eng.control(l, { a: 'drinking', on: 'ja' } as unknown as HostAction, 0)).toBe(l);
+    const started = eng.control(on, { a: 'start' }, 0);
+    expect(eng.control(started, { a: 'drinking', on: false }, 0)).toBe(started);
+  });
+
+  it('drinking überlebt Nochmal und Neue Party', () => {
+    const { p, t } = reachAll(true).podium;
+    expect(p.drinking).toBe(true);
+    expect(eng.control(p, { a: 'again', seed: 5 }, t).drinking).toBe(true);
+    expect(eng.control(p, { a: 'lobby', seed: 5 }, t).drinking).toBe(true);
+    const off = reachAll(false).podium;
+    expect(eng.control(off.p, { a: 'again', seed: 5 }, off.t).drinking).toBe(false);
+    expect(eng.control(off.p, { a: 'lobby', seed: 5 }, off.t).drinking).toBe(false);
+  });
+
+  it('init bekommt { speed, drinking }', () => {
+    expect(state(reachAll(true).play.p).drinking).toBe(true);
+    expect(state(reachAll(false).play.p).drinking).toBe(false);
+  });
+
+  it('jede Sicht trägt drinking, in der Lobby auch für Clients', () => {
+    for (const on of [true, false])
+      for (const [k, { p, t }] of Object.entries(reachAll(on)))
+        for (const pid of [HOST, 'a']) expect(eng.viewFor(p, pid, t), `${k} ${pid}`).toMatchObject({ drinking: on });
+  });
+});
+
+describe('Trinkmodus: Pool', () => {
+  const only = (...ids: ('hammer' | 'farbfalle')[]) =>
+    Object.fromEntries(ids.map((id) => [id, makeDummy(id, { drinkOnly: true })]));
+  const pool = createEngine({ ...dummyRegistry(), ...only('hammer', 'farbfalle') });
+  const started = (e: typeof eng, seed: number, drinking: boolean, rounds: 3 | 5 | 8 = 8): Party => {
+    let p = e.create('ABCD', seed, HOST, { dev: true, speed: 10 });
+    p = e.hello(p, HOST, 'Host', 0).p;
+    p = e.control(p, { a: 'rounds', n: rounds }, 0);
+    p = e.control(p, { a: 'drinking', on: drinking }, 0);
+    return e.control(p, { a: 'start' }, 0);
+  };
+  const noRepeat = (xs: readonly string[]) => xs.every((x, i) => i === 0 || x !== xs[i - 1]);
+
+  it('ohne Trinkmodus kommt über 200 Seeds nie ein drinkOnly-Spiel in order', () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const { order } = started(pool, seed, false);
+      expect(order).toHaveLength(8);
+      expect(order.some((id) => id === 'hammer' || id === 'farbfalle')).toBe(false);
+      expect(noRepeat(order)).toBe(true);
+    }
+  });
+
+  it('mit Trinkmodus kommen alle Pool-Spiele etwa gleich oft vor und nie zweimal hintereinander', () => {
+    const counts = new Map<string, number>();
+    for (let seed = 0; seed < 200; seed++) {
+      const { order } = started(pool, seed, true);
+      expect(noRepeat(order)).toBe(true);
+      for (const id of order) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    expect([...counts.keys()].sort()).toEqual([...GAME_IDS].sort());
+    const mean = (200 * 8) / GAME_IDS.length;
+    for (const [id, n] of counts) expect(Math.abs(n - mean), id).toBeLessThan(mean * 0.15);
+  });
+
+  it('der Pool gilt auch für Nochmal', () => {
+    let p = started(pool, 9, false, 3);
+    p = { ...p, phase: { k: 'podium' } };
+    for (let seed = 0; seed < 50; seed++)
+      expect(pool.control(p, { a: 'again', seed }, 0).order.some((id) => id === 'hammer' || id === 'farbfalle')).toBe(false);
+  });
+
+  it('eine Registry nur aus einem drinkOnly-Spiel startet trotzdem (only)', () => {
+    const solo = createEngine(only('hammer'));
+    const p = started(solo, 3, false, 5);
+    expect(p.phase.k).toBe('intro');
+    expect(p.order).toEqual(['hammer', 'hammer', 'hammer', 'hammer', 'hammer']);
+    const withDrink = started(solo, 3, true, 3);
+    expect(withDrink.order).toEqual(['hammer', 'hammer', 'hammer']);
+  });
+});
+
+describe('Trinkmodus: Rundenende', () => {
+  const play = (e: typeof eng, drinking: boolean, speed = 1) => {
+    let p = e.hello(e.hello(e.hello(e.create('ABCD', 42, HOST, { dev: false, speed }), HOST, 'Host', 0).p, 'a', 'a', 0).p, 'b', 'b', 0).p;
+    p = e.control(p, { a: 'drinking', on: drinking }, 0);
+    return advance(e.control(p, { a: 'start' }, 0), 0, 'play');
+  };
+  const finish = (e: typeof eng, p0: Party, votes: Record<string, number>, t: number): Party => {
+    let p = p0;
+    for (const [pid, v] of Object.entries(votes)) p = e.input(p, pid, 0, { v }, t);
+    return stepAll(p, t);
+  };
+  const rowsOf = (p: Party, pid = HOST) => {
+    const v = eng.viewFor(p, pid, 0);
+    if (v.s !== 'result') throw new Error('result erwartet');
+    return v;
+  };
+
+  it('Platz-Regel im RoundRecord und in der Result-Sicht, Zeilen in Ergebnis-Reihenfolge', () => {
+    const { p: p0, t } = play(eng, true);
+    const p = finish(eng, p0, { [HOST]: 3, a: 9, b: 9 }, t + 100);
+    expect(p.history[0]?.drinks).toEqual({
+      rows: { [HOST]: { take: 2, give: 0 }, a: { take: 0, give: 1 }, b: { take: 0, give: 1 } },
+      cheers: false,
+    });
+    const v = rowsOf(p);
+    expect(v.drinks).toEqual({
+      rows: [
+        { pid: 'a', take: 0, give: 1 },
+        { pid: 'b', take: 0, give: 1 },
+        { pid: HOST, take: 2, give: 0 },
+      ],
+      cheers: false,
+    });
+    expect(v.drinking).toBe(true);
+  });
+
+  it('ohne Eingaben stehen alle auf demselben Platz: Anstoßen, keine Zeilen', () => {
+    const { p: p0, t } = play(eng, true);
+    const p = stepAll(p0, t + 1000);
+    expect(p.history[0]?.drinks).toEqual({ rows: {}, cheers: true });
+    expect(rowsOf(p).drinks).toEqual({ rows: [], cheers: true });
+  });
+
+  it('ohne Trinkmodus ist drinks null (Record und Sicht)', () => {
+    const { p: p0, t } = play(eng, false);
+    const p = finish(eng, p0, { [HOST]: 3, a: 9, b: 9 }, t + 100);
+    expect(p.history[0]?.drinks).toBeNull();
+    expect(rowsOf(p).drinks).toBeNull();
+    expect(rowsOf(p).drinking).toBe(false);
+  });
+
+  it('die Ergebnisphase dauert nur mit Trinkmodus scale(RESULT + DRINK_EXTRA)', () => {
+    expect(DRINK_EXTRA).toBe(2000);
+    for (const speed of [1, 10]) {
+      for (const [on, extra] of [[true, DRINK_EXTRA], [false, 0]] as const) {
+        const { p: p0, t } = play(eng, on, speed);
+        const p = finish(eng, p0, { [HOST]: 1, a: 2, b: 3 }, t + 10);
+        expect(p.phase, `speed ${speed} ${on}`).toEqual({ k: 'result', r: 0, until: t + 10 + scale(RESULT + extra, speed) });
+      }
+    }
+  });
+
+  it('Offline-Spieler am Rundenende bekommen keinen Schluck', () => {
+    const { p: p0, t } = play(eng, true);
+    let p = eng.disconnect(p0, 'b', t + 50);
+    p = eng.input(p, HOST, 0, { v: 5 }, t + 100);
+    p = eng.input(p, 'a', 0, { v: 1 }, t + 100);
+    p = stepAll(p, t + 100, [HOST, 'a']);
+    expect(p.history[0]?.drinks).toEqual({ rows: { a: { take: 1, give: 0 } }, cheers: false });
+  });
+
+  it('eigene drinks des Spiels laufen durch die Kappung: Record und DrinkPlan', () => {
+    const own = createEngine({
+      ...dummyRegistry(),
+      ...Object.fromEntries(
+        GAME_IDS.map((id) => [
+          id,
+          makeDummy(id, { drinks: () => ({ a: { take: 9, give: 0 }, [HOST]: { take: 1, give: 2.7 }, fremd: { take: 2, give: 2 } }) }),
+        ]),
+      ),
+    });
+    const { p: p0, t } = play(own, true);
+    const p = finish(own, p0, { [HOST]: 3, a: 9, b: 9 }, t + 100);
+    expect(p.history[0]?.drinks).toEqual({
+      rows: { a: { take: 3, give: 0 }, [HOST]: { take: 1, give: 2 } },
+      cheers: false,
+    });
+
+    const plan = createEngine({
+      ...dummyRegistry(),
+      ...Object.fromEntries(GAME_IDS.map((id) => [id, makeDummy(id, { drinks: () => ({ rows: {}, cheers: true }) })])),
+    });
+    const q0 = play(plan, true);
+    const q = finish(plan, q0.p, { [HOST]: 3, a: 9, b: 9 }, q0.t + 100);
+    expect(q.history[0]?.drinks).toEqual({ rows: {}, cheers: true });
+    const v = plan.viewFor(q, 'a', 0);
+    expect(v.s === 'result' && v.drinks).toEqual({ rows: [], cheers: true });
+  });
+
+  it('eigene drinks werden ohne Trinkmodus nicht aufgerufen', () => {
+    let calls = 0;
+    const own = createEngine(
+      Object.fromEntries(GAME_IDS.map((id) => [id, makeDummy(id, { drinks: () => (calls++, {}) })])),
+    );
+    const { p: p0, t } = play(own, false);
+    finish(own, p0, { [HOST]: 3 }, t + 100);
+    expect(calls).toBe(0);
   });
 });
 

@@ -58,6 +58,7 @@ interface Setup {
   rand?: () => number;
   engine?: Engine;
   dev?: boolean;
+  rounds?: number;
 }
 
 async function setup(o: Setup = {}) {
@@ -93,6 +94,7 @@ async function setup(o: Setup = {}) {
     dev: o.dev ?? false,
     speed: o.speed ?? 1,
     hostPid: HOST_PID,
+    rounds: o.rounds,
   });
   const connect = (): TC => {
     const [h, c] = createLoopbackPair();
@@ -366,6 +368,55 @@ describe('Host-Flush', () => {
     s.host.control({ a: 'start' });
     await s.runUntil(() => gameSeed(k) !== undefined);
     expect(gameSeed(k)).toBe(mix32(fresh, 0));
+  });
+});
+
+describe('Host-Optionen und Trinkmodus', () => {
+  it('rounds aus den Optionen setzt Party.rounds und die Lobby-Sicht; ohne Option bleibt es bei 5', async () => {
+    const s = await setup({ rounds: 2, dev: true });
+    const local = await s.joinHost();
+    expect(local.last).toMatchObject({ s: 'lobby', rounds: 2 });
+    const d = await setup();
+    const other = await d.joinHost();
+    expect(other.last).toMatchObject({ s: 'lobby', rounds: 5 });
+  });
+
+  it('mit rounds=1 endet die Party nach einer Runde', async () => {
+    const s = await setup({ rounds: 1, dev: true, speed: 10 });
+    const local = await s.joinHost();
+    s.host.control({ a: 'start' });
+    await s.runUntil(() => local.last.s === 'podium');
+    const rounds = new Set(local.views.flatMap((v) => (v.view.s === 'intro' ? [v.view.r] : [])));
+    expect([...rounds]).toEqual([0]);
+  });
+
+  it('der Trinkmodus-Schalter erreicht Host und Clients als drinking in der Lobby-Sicht', async () => {
+    const s = await setup();
+    const local = await s.joinHost();
+    const a = await s.join(pidOf('anna'), 'Anna');
+    expect(a.last).toMatchObject({ s: 'lobby', drinking: false });
+    s.host.control({ a: 'drinking', on: true });
+    await settle();
+    for (const tc of [local, a]) expect(tc.last).toMatchObject({ s: 'lobby', drinking: true });
+    s.host.control({ a: 'drinking', on: false });
+    await settle();
+    for (const tc of [local, a]) expect(tc.last).toMatchObject({ drinking: false });
+  });
+
+  it('mit Trinkmodus tragen Ergebnis-Sichten aller Clients denselben Plan', async () => {
+    const s = await setup({ speed: 10 });
+    const local = await s.joinHost();
+    const a = await s.join(pidOf('anna'), 'Anna');
+    s.host.control({ a: 'drinking', on: true });
+    s.host.control({ a: 'rounds', n: 3 });
+    s.host.control({ a: 'start' });
+    await s.runUntil(() => [local, a].every((tc) => tc.views.some((v) => v.view.s === 'result')));
+    const plans = [local, a].map((tc) => {
+      const v = tc.views.find((x) => x.view.s === 'result')?.view;
+      return v?.s === 'result' ? v.drinks : undefined;
+    });
+    expect(plans[0]).toEqual({ rows: [], cheers: true });
+    expect(plans[1]).toEqual(plans[0]);
   });
 });
 

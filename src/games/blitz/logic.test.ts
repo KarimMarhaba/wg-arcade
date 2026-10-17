@@ -6,7 +6,7 @@ const PLAYERS = [0, 1, 2].map((i) => ({ pid: `p${i}`, name: `P${i}`, color: i })
 const NOW = 1000;
 const SPEEDS = [1, 10];
 const make = (speed = 1, seed = 5, players = PLAYERS, now = NOW): BlitzState =>
-  blitz.init(players, seed, now, { speed });
+  blitz.init(players, seed, now, { speed, drinking: false });
 const hit = (s: BlitzState, pid: string, raw: unknown, now = NOW): BlitzState => {
   const i = blitz.parseInput(raw);
   if (i === null) throw new Error('ungueltig');

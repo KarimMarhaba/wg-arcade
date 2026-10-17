@@ -6,7 +6,8 @@ import { rec as readRec, WATCH_GAMES, type Rec, type Row } from './watch';
 const POINTS = [5, 3, 2, 1];
 const GUESSES = [50, 5000, 200];
 const ROUNDS = 5;
-const GAME_IDS = ['blitz', 'farbfalle', 'hammer', 'schaetzfuchs'];
+const NORMAL = ['blitz', 'farbfalle', 'hammer', 'schaetzfuchs'];
+const SEED = 20261017;
 
 async function playParty(pages: Page[], first: number): Promise<void> {
   await Promise.all(
@@ -43,7 +44,11 @@ function checkParty(recs: Rec[], first: number): Map<string, number> {
     for (const row of perPage[0] as Row[]) totals.set(row.pid, row.total);
   }
   const games = (recs[0] as Rec).rounds.slice(first, first + ROUNDS).map((x) => x.game);
-  expect([...new Set(games)].sort()).toEqual(GAME_IDS);
+  expect(games).toHaveLength(ROUNDS);
+  games.forEach((g, i) => {
+    expect(NORMAL, `Spiel ${g} in Runde ${i + 1}`).toContain(g);
+    if (i > 0) expect(g, `Wiederholung in Runde ${i + 1}`).not.toBe(games[i - 1]);
+  });
   recs.forEach((rec, k) => {
     const rows = rec.podiums.at(-1) ?? [];
     expect(rows, `Podium Seite ${k}`).toHaveLength(3);
@@ -68,7 +73,7 @@ test('Komplettparty: QR-Beitritt, 5 Runden, Podium, Nochmal, Neue Party, sauber'
   });
   await context.addInitScript(WATCH_GAMES);
 
-  const host = await openHost(context, 'Karim', errors);
+  const host = await openHost(context, 'Karim', errors, { seed: SEED });
   const dataUrl = (await tid(host.page, 'qr').getAttribute('data-url')) ?? '';
   const qr = new URL(dataUrl);
   expect(qr.origin).toBe(base.origin);

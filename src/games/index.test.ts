@@ -5,19 +5,29 @@ import { GAMES, gamesFor } from './index';
 import { QUESTIONS } from './schaetzfuchs/questions';
 import { GAME_IDS, type GameId } from './types';
 
+const ACCENTS = ['lime', 'hot', 'cyan', 'orange'];
+
 describe('Registry', () => {
-  it('GAMES[id].id === id mit vier verschiedenen Akzenten', () => {
-    for (const id of GAME_IDS) expect(GAMES[id].id).toBe(id);
-    expect(GAME_IDS.map((id) => GAMES[id].accent).sort()).toEqual(['cyan', 'hot', 'lime', 'orange']);
+  it('GAMES[id].id === id, Akzent aus den vier Spielfarben, Titel und Regel gesetzt', () => {
     for (const id of GAME_IDS) {
+      expect(GAMES[id].id).toBe(id);
+      expect(ACCENTS).toContain(GAMES[id].accent);
       expect(GAMES[id].title).not.toBe('');
       expect(GAMES[id].rule).not.toBe('');
+    }
+    expect(Object.keys(GAMES).sort()).toEqual([...GAME_IDS].sort());
+  });
+
+  it('drinkOnly ist nur true oder fehlt, drinks nur eine Funktion oder fehlt', () => {
+    for (const id of GAME_IDS) {
+      expect([true, undefined]).toContain(GAMES[id].drinkOnly);
+      expect(['function', 'undefined']).toContain(typeof GAMES[id].drinks);
     }
   });
 });
 
 describe('gamesFor', () => {
-  it('liefert ohne only alle 4 Spiele', () => {
+  it('liefert ohne only alle Spiele', () => {
     expect(Object.keys(gamesFor()).sort()).toEqual([...GAME_IDS].sort());
     expect(Object.keys(gamesFor(undefined)).sort()).toEqual([...GAME_IDS].sort());
   });
@@ -65,13 +75,17 @@ function until(engine: ReturnType<typeof createEngine>, p: Party, t0: number, k:
 }
 
 describe('Integration: ganze Party nur mit Ticks', () => {
-  it('erreicht das Podium, alle 4 Spiele in order, Intro traegt Titel und Akzent', () => {
+  it('erreicht das Podium; order liegt im Normalpool ohne Wiederholung, Intro traegt Titel und Akzent', () => {
     let p = lobby(eng, { speed: 10, guest: false, rounds: 5 });
-    expect(new Set(p.order)).toEqual(new Set(GAME_IDS));
+    const normal = GAME_IDS.filter((id) => !GAMES[id].drinkOnly);
+    expect(p.order).toHaveLength(5);
+    for (const id of p.order) expect(normal).toContain(id);
+    p.order.forEach((id, r) => expect(r === 0 || id !== p.order[r - 1]).toBe(true));
+    expect(new Set(p.order).size).toBe(Math.min(5, normal.length));
     const intros = new Map<number, ReturnType<typeof eng.viewFor>>();
     let t = 0;
     for (let n = 0; p.phase.k !== 'podium'; n++) {
-      if (n > 1500) throw new Error('Podium nicht erreicht');
+      if (n > 3000) throw new Error('Podium nicht erreicht');
       if (p.phase.k === 'intro' && !intros.has(p.phase.r)) intros.set(p.phase.r, eng.viewFor(p, HOST, t));
       t += 100;
       p = step(eng, p, t);
@@ -79,8 +93,23 @@ describe('Integration: ganze Party nur mit Ticks', () => {
     expect(intros.size).toBe(5);
     p.order.forEach((id, r) => {
       expect(intros.get(r)).toMatchObject({ s: 'intro', r, game: id, title: GAMES[id].title, accent: GAMES[id].accent });
+      expect(ACCENTS).toContain(GAMES[id].accent);
     });
     expect(p.history).toHaveLength(5);
+  });
+
+  it('mit Trinkmodus darf order auch drinkOnly-Spiele enthalten, ohne nie', () => {
+    const drinkOnly = GAME_IDS.filter((id) => GAMES[id].drinkOnly);
+    for (let seed = 0; seed < 50; seed++) {
+      const mk = (on: boolean) => {
+        let p = eng.create('ABCD', seed, HOST, { dev: true, speed: 10 });
+        p = eng.hello(p, HOST, 'Host', 0).p;
+        p = eng.control(p, { a: 'rounds', n: 8 }, 0);
+        return eng.control(eng.control(p, { a: 'drinking', on }, 0), { a: 'start' }, 0).order;
+      };
+      for (const id of mk(false)) expect(drinkOnly).not.toContain(id);
+      expect(mk(true)).toHaveLength(8);
+    }
   });
 });
 

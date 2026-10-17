@@ -6,8 +6,20 @@ declare global {
   }
 }
 
+export interface Tint {
+  tint: string | null;
+  fill: string;
+  bg: string;
+}
+export interface DrinkRec {
+  me: string;
+  line: string;
+  cheers: boolean;
+  chips: { pid: string; take: number; give: number }[];
+}
 export interface RoundRec {
   game: string;
+  tint: Tint | null;
   states: string[];
   shown: string | null;
   firstShown: string | null;
@@ -34,13 +46,16 @@ export interface Rec {
   results: Row[][];
   podiums: PodiumRow[][];
   intros: { head: string; game: string }[];
+  drinks: (DrinkRec | null)[];
+  hints: number;
   flashes: number;
   punches: number;
 }
 
 
 export const WATCH_GAMES = (): void => {
-  const rec: Rec = { rounds: [], results: [], podiums: [], intros: [], flashes: 0, punches: 0 };
+  const HINT = '[data-testid=drink-hint]';
+  const rec: Rec = { rounds: [], results: [], podiums: [], intros: [], drinks: [], hints: 0, flashes: 0, punches: 0 };
   window.rec = rec;
   const ids = new WeakMap<Element, number>();
   const seenResults = new WeakSet<Element>();
@@ -54,7 +69,7 @@ export const WATCH_GAMES = (): void => {
     if (i === undefined) {
       i = rec.rounds.length;
       ids.set(root, i);
-      rec.rounds.push({ game: root.dataset.game ?? '', states: [], shown: null, firstShown: null, answer: null });
+      rec.rounds.push({ game: root.dataset.game ?? '', tint: null, states: [], shown: null, firstShown: null, answer: null });
     }
     return rec.rounds[i] as RoundRec;
   };
@@ -70,12 +85,23 @@ export const WATCH_GAMES = (): void => {
         const was = (r.oldValue ?? '').split(' ').includes('punch');
         if (!was && t.classList.contains('punch')) rec.punches++;
       }
-      for (const n of r.addedNodes) if (n instanceof Element && n.classList.contains('flash')) rec.flashes++;
+      for (const n of r.addedNodes) {
+        if (!(n instanceof Element)) continue;
+        if (n.classList.contains('flash')) rec.flashes++;
+        if (n.matches(HINT) || n.querySelector(HINT)) rec.hints++;
+      }
     }
     const root = document.querySelector<HTMLElement>('[data-screen=game]');
     if (root) {
       const round = roundOf(root);
       push(round, root.dataset.state ?? null);
+      const fill = root.querySelector('.timer-fill');
+      if (round.tint === null && fill)
+        round.tint = {
+          tint: root.getAttribute('data-tint'),
+          fill: getComputedStyle(fill).backgroundColor,
+          bg: getComputedStyle(root).backgroundColor,
+        };
       const text = (id: string): string | null => root.querySelector(`[data-testid=${id}]`)?.textContent ?? null;
       const shown = text('hammer-count') ?? text('ff-score') ?? text('sf-answer');
       if (shown !== null) {
@@ -97,6 +123,21 @@ export const WATCH_GAMES = (): void => {
           name: nameOf(row),
           color: colorOf(row),
         })),
+      );
+      const strip = res.querySelector('[data-testid=drink-strip]');
+      rec.drinks.push(
+        strip
+          ? {
+              me: strip.querySelector('[data-testid=drink-me]')?.textContent ?? '',
+              line: strip.querySelector('[data-testid=drink-line]')?.textContent ?? '',
+              cheers: strip.getAttribute('data-cheers') === 'true',
+              chips: [...strip.querySelectorAll('[data-testid=drink-chip]')].map((c) => ({
+                pid: c.getAttribute('data-pid') ?? '',
+                take: Number(c.getAttribute('data-take')),
+                give: Number(c.getAttribute('data-give')),
+              })),
+            }
+          : null,
       );
     }
     for (const pod of document.querySelectorAll('[data-screen=podium]')) {

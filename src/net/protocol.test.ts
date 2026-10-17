@@ -10,6 +10,7 @@ const lobbyView: View = {
   code: 'ABCD',
   players: [{ pid: PID, name: 'Karim', color: 0, online: true, total: 0, host: true }],
   s: 'lobby',
+  drinking: false,
   rounds: 5,
   canStart: false,
   min: 2,
