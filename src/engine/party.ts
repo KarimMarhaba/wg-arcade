@@ -19,6 +19,7 @@ const sorted = <T extends { place: number }>(xs: T[]): T[] => [...xs].sort((a, b
 
 export function createEngine(games: Record<string, GameDef<any, any, any>>) {
   const ids = GAME_IDS.filter((id) => id in games);
+  if (ids.length === 0) throw new Error('Registry enthält kein Spiel');
   const def = (id: GameId) => must(games[id], `unbekanntes Spiel ${id}`);
   const defAt = (p: Party, r: number) => def(must(p.order[r], `keine Runde ${r}`));
   const onlineSet = (p: Party): Set<string> => new Set(p.players.filter((x) => x.online).map((x) => x.pid));

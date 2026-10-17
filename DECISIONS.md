@@ -49,3 +49,15 @@ Warum: Freie Plätze und Farben in der Lobby. Ohne neuen Seed wären nach „Neu
 ## 2026-10-17 — D-7: fast skaliert nur Spiel- und Phasendauern; `?only=<id>`
 Was: `speed` (10 mit dev + fast) teilt Phasen- und Spieldauern (`scale`), nicht Heartbeat (`PING`/`OFFLINE`/`TICK`), `GRACE` und `BLITZ_MAX`. Das dev-Flag `?only=<id>` beschränkt die Spiel-Registry auf ein Spiel; die Engine kennt es nicht, sie plant über `GAME_IDS` gefiltert nach der Registry (ein Spiel wird wiederholt).
 Warum: Netztoleranz bleibt real, Wertungswerte bleiben vergleichbar; gezielte E2E-Läufe pro Spiel.
+
+## 2026-10-17 — D-6: Farbfalle-Farben ROT/BLAU/GELB/WEISS ohne Grün; Hex nur als Tokens
+Was: Farbfalle nutzt ROT, BLAU, GELB und WEISS. Die Hex-Werte (`#ff3b4e`, `#3d7bff`, `#ffe14d`, `#f4f1ea`) stehen als `--ff-rot|blau|gelb|weiss` in `tokens.css`. `games/colors.ts` enthält nur `id` (`rot|blau|gelb|weiss`, wie `data-ink`) und das Wort, keine Hex-Werte. Folge und Eingabe sind Indizes 0..3 über `FF_COLORS`.
+Warum: Grün entfällt wegen Rot-Grün-Schwäche. Hex nur in `tokens.css`/`palette.ts` hält die Farbquelle einzig. Index-Paare statt Objekten halten die Sicht klein (400 Paare: ~3,6 kB statt >12 kB; `parseEnvelope` verwirft > 16 384 Zeichen still, und jede Antwort schickt die Sicht erneut).
+
+## 2026-10-17 — D-9: Schätzfuchs-Frage pro Runde per Seed
+Was: Die Frage ist `QUESTIONS[int(mulberry32(seed), 0, len-1)]` mit dem Runden-Seed. Eine Wiederholung innerhalb einer Party ist theoretisch möglich.
+Warum: Die Spiellogik bleibt rein und kennt die Party nicht; bei 50+ Fragen und höchstens 8 Runden ist die Wahrscheinlichkeit gering.
+
+## 2026-10-17 — Ohne Eingabe kein Ergebnis
+Was: `result` von blitz, hammer und farbfalle enthält nur Spieler mit mindestens einer gültigen Eingabe; ohne Eingabe gilt das Label „–“. Schätzfuchs trägt ohne Tipp ebenfalls keinen Eintrag. Fehlende blitz-Versuche eines Teilnehmers zählen 1000. Früh-Ende gilt, wenn es mindestens einen Online-Teilnehmer gibt und alle Online-Teilnehmer fertig sind; Offline-Spieler blockieren nicht.
+Warum: Der Client meldet immer etwas (blitz 1000 bei Kein-Tap, hammer `final`, farbfalle `done`). Ohne die Regel bekäme bei 2 Spielern ein online gemeldeter, aber nie eingreifender Spieler einen Wert und damit 3 Punkte. `rank` setzt fehlende Einträge auf den letzten Platz mit 0 Punkten.
