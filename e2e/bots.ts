@@ -1,7 +1,21 @@
 import type { Page } from '@playwright/test';
 
+export interface EbCard {
+  c: number;
+  term: string | null;
+}
+
+export interface EbSeen {
+  k: number;
+  role: string;
+  hasTaboo: boolean;
+  cards: EbCard[];
+  picks: string[];
+}
+
 export interface Played {
   game: string;
+  seen?: EbSeen[];
   early?: boolean;
   taps?: number;
   wrong?: number;
@@ -17,6 +31,8 @@ export interface RoundOpts {
   round?: number;
   bias?: number;
   accuse?: string;
+  aim?: string;
+  avoid?: string;
 }
 
 const INKS = ['rot', 'blau', 'gelb', 'weiss'] as const;
@@ -249,6 +265,82 @@ export async function playVerraeter(page: Page, o: { bias?: number; accuse?: str
   return out;
 }
 
+const choiceAt = (page: Page, aim?: string, avoid?: string): Promise<{ x: number; y: number } | null> =>
+  page.evaluate(
+    ([want, not]) => {
+      const all = [...document.querySelectorAll<HTMLElement>('[data-testid=choice]')];
+      const text = (b: HTMLElement): string => b.querySelector('.choice-text')?.textContent ?? '';
+      const hit = all.find((b) => want !== null && text(b) === want) ?? all.find((b) => not === null || text(b) !== not) ?? all[0];
+      const box = hit?.getBoundingClientRect();
+      return box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : null;
+    },
+    [aim ?? null, avoid ?? null] as const,
+  );
+
+export async function playPokerface(page: Page, o: { aim?: string; avoid?: string } = {}): Promise<Played> {
+  await drive(page, async (t) => {
+    if (t.state === 'talk') await clickFirst(page, 'btn-done-mission');
+    if (t.state === 'guess') {
+      const at = await choiceAt(page, o.aim, o.avoid);
+      if (at) await page.mouse.click(at.x, at.y);
+    }
+  });
+  return { game: 'pokerface' };
+}
+
+const sampleCard = (page: Page): Promise<EbCard> =>
+  page.evaluate(() => {
+    const el = document.querySelector('[data-testid=eb-term]');
+    return { c: Number(el?.getAttribute('data-c') ?? -1), term: el?.textContent ?? null };
+  });
+
+const pickNames = (page: Page): Promise<string[]> =>
+  page.evaluate(() => [...document.querySelectorAll('[data-testid=pick] .pick-name')].map((e) => e.textContent ?? ''));
+
+async function untilHits(page: Page, step: string, need: number): Promise<boolean> {
+  const r = await page.waitForFunction(
+    ([k, n]) => {
+      const root = document.querySelector('[data-screen=game]');
+      if (!root || root.getAttribute('data-state') !== 'explain' || root.getAttribute('data-step') !== k) return 'over';
+      return Number(document.querySelector('[data-testid=eb-count]')?.getAttribute('data-hits') ?? 0) >= Number(n) ? 'hit' : false;
+    },
+    [step, String(need)] as const,
+    { polling: 'raf', timeout: 15_000 },
+  );
+  return (await r.jsonValue()) === 'hit';
+}
+
+export async function playErklaerbaer(page: Page, o: { bias?: number } = {}): Promise<Played> {
+  const seen: EbSeen[] = [];
+  await drive(page, async (t) => {
+    if (t.state !== 'explain') return;
+    const row: EbSeen = {
+      k: Number(t.step),
+      role: t.role ?? '',
+      hasTaboo: (await firstBox(page, 'btn-taboo')) !== null,
+      cards: [await sampleCard(page)],
+      picks: [],
+    };
+    seen.push(row);
+    const step = t.step ?? '';
+    if (t.role === 'explainer') {
+      await clickFirst(page, 'btn-hit');
+      row.picks = await pickNames(page);
+      if (row.picks.length > 0) {
+        const at = await pickAt(page, null);
+        if (at) await page.mouse.click(at.x, at.y);
+      }
+      if (!(await untilHits(page, step, 1))) return;
+      row.cards.push(await sampleCard(page));
+      if (row.hasTaboo) await clickFirst(page, o.bias === 1 ? 'btn-taboo' : 'btn-hit');
+    } else if (t.role === 'guard' && (await untilHits(page, step, 1))) {
+      row.cards.push(await sampleCard(page));
+      await clickFirst(page, 'btn-taboo');
+    }
+  });
+  return { game: 'erklaerbaer', seen };
+}
+
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
   await page.waitForFunction(
     (head) => {
@@ -280,6 +372,10 @@ export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> 
       return playLuegenbaron(page);
     case 'verraeter':
       return playVerraeter(page, o);
+    case 'pokerface':
+      return playPokerface(page, o);
+    case 'erklaerbaer':
+      return playErklaerbaer(page, o);
     default:
       throw new Error(`unbekanntes Spiel: ${game}`);
   }

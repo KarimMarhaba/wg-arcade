@@ -6,7 +6,22 @@ import { rec as readRec, WATCH_GAMES, type Rec, type Row } from './watch';
 const POINTS = [5, 3, 2, 1];
 const GUESSES = [50, 5000, 200];
 const ROUNDS = 5;
-const NORMAL = ['blitz', 'bombe', 'farbfalle', 'gleichklang', 'hammer', 'luegenbaron', 'schaetzfuchs', 'stopp', 'verraeter', 'werwuerde'];
+const NORMAL = [
+  'blitz',
+  'bombe',
+  'erklaerbaer',
+  'farbfalle',
+  'gleichklang',
+  'hammer',
+  'luegenbaron',
+  'pokerface',
+  'schaetzfuchs',
+  'stopp',
+  'verraeter',
+  'werwuerde',
+];
+const RUN1 = ['hammer', 'pokerface', 'bombe', 'luegenbaron', 'stopp'];
+const RUN2 = ['werwuerde', 'gleichklang', 'luegenbaron', 'erklaerbaer', 'hammer'];
 const played = new Set<string>();
 const SEED = 20261017;
 
@@ -36,7 +51,7 @@ function checkRows(rows: Row[], prev: Map<string, number>, label: string): void 
   });
 }
 
-function checkParty(recs: Rec[], first: number): Map<string, number> {
+function checkParty(recs: Rec[], first: number, expected: string[]): Map<string, number> {
   const totals = new Map<string, number>();
   for (let r = 0; r < ROUNDS; r++) {
     const perPage = recs.map((rec) => rec.results[first + r] as Row[]);
@@ -45,7 +60,7 @@ function checkParty(recs: Rec[], first: number): Map<string, number> {
     for (const row of perPage[0] as Row[]) totals.set(row.pid, row.total);
   }
   const games = (recs[0] as Rec).rounds.slice(first, first + ROUNDS).map((x) => x.game);
-  expect(games).toHaveLength(ROUNDS);
+  expect(games, 'genaue Spielliste des Seeds').toEqual(expected);
   games.forEach((g, i) => {
     played.add(g);
     expect(NORMAL, `Spiel ${g} in Runde ${i + 1}`).toContain(g);
@@ -93,9 +108,9 @@ test('Komplettparty: QR-Beitritt, 5 Runden, Podium, Nochmal, Neue Party, sauber'
   await tid(host.page, 'btn-start').click();
   await playParty(pages, 0);
   for (const p of pages) await expect(tid(p, 'podium-row')).toHaveCount(3);
-  const first = checkParty(await Promise.all(pages.map(readRec)), 0);
+  const first = checkParty(await Promise.all(pages.map(readRec)), 0, RUN1);
   expect(first.size).toBe(3);
-  expect([...played].sort()).toEqual(expect.arrayContaining(['bombe', 'luegenbaron', 'stopp', 'verraeter', 'werwuerde']));
+  expect([...played].sort()).toEqual([...RUN1].sort());
 
   const introsBefore = await Promise.all(pages.map(async (p) => (await readRec(p)).intros.length));
   await tid(host.page, 'btn-again').click();
@@ -112,8 +127,9 @@ test('Komplettparty: QR-Beitritt, 5 Runden, Podium, Nochmal, Neue Party, sauber'
   await playParty(pages, ROUNDS);
   for (const p of pages) await expect(tid(p, 'podium-row')).toHaveCount(3);
   const again = await Promise.all(pages.map(readRec));
-  checkParty(again, ROUNDS);
-  expect((again[0] as Rec).rounds.slice(ROUNDS, 2 * ROUNDS).map((x) => x.game)).toContain('verraeter');
+  checkParty(again, ROUNDS, RUN2);
+  expect((again[0] as Rec).rounds.slice(ROUNDS, 2 * ROUNDS).map((x) => x.game)).toEqual(RUN2);
+  expect([...played].sort()).toEqual([...new Set([...RUN1, ...RUN2])].sort());
 
   await tid(host.page, 'btn-new').click();
   for (const p of pages) {

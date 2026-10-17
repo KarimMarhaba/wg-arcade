@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gameGone, playRound } from './bots';
+import { gameGone, playRound, type EbSeen, type RoundOpts } from './bots';
 import { ACCENT, CONTRACT, LABEL, type Id } from './contract';
 import { audit, cssColor, joinByCode, openHost, screen, tid } from './helpers';
 import { rec as readRec, WATCH_GAMES, type Rec } from './watch';
@@ -21,10 +21,22 @@ for (const id of IDS)
     const pages = [host.page, guest];
     await host.page.getByTestId('btn-start').click();
 
-    const [hostPlayed, guestPlayed] = await Promise.all([
-      playRound(host.page, { guess: GUESS.host, bias: 0 }),
-      playRound(guest, { guess: GUESS.guest, bias: 1 }),
-    ]);
+    const hostOpts: RoundOpts = { guess: GUESS.host, bias: 0 };
+    const guestOpts: RoundOpts = { guess: GUESS.guest, bias: 1 };
+    if (id === 'pokerface') {
+      const [karim, anna] = await Promise.all(
+        pages.map(async (p) => {
+          await tid(p, 'pf-mission').waitFor({ timeout: 15_000 });
+          return (await tid(p, 'pf-mission').textContent()) ?? '';
+        }),
+      );
+      expect(karim).not.toBe('');
+      expect(anna).not.toBe('');
+      expect(karim).not.toBe(anna);
+      hostOpts.avoid = anna;
+      guestOpts.aim = karim;
+    }
+    const [hostPlayed, guestPlayed] = await Promise.all([playRound(host.page, hostOpts), playRound(guest, guestOpts)]);
     await Promise.all(pages.map(async (p) => (await gameGone(p), await screen(p, 'podium').waitFor({ timeout: 30_000 }))));
     const [h, g] = (await Promise.all(pages.map(readRec))) as [Rec, Rec];
 
@@ -75,6 +87,22 @@ for (const id of IDS)
       expect(rows.find((x) => x.name === win)?.label).toBe('2 Pkt');
       expect(rows.find((x) => x.name !== win)?.points).toBe('3');
       expect(rows.find((x) => x.name !== win)?.label).toBe('0 Pkt');
+    }
+
+    if (id === 'pokerface') {
+      const rows = h.results[0] ?? [];
+      expect(rows.find((x) => x.name === 'Karim')?.label, 'Karim rät falsch, Anna rät richtig').toBe('1 Pkt');
+      expect(rows.find((x) => x.name === 'Anna')?.label).toBe('5 Pkt');
+      expect(rows.find((x) => x.name === 'Anna')?.points).toBe('5');
+      expect(rows.find((x) => x.name === 'Karim')?.points).toBe('3');
+    }
+
+    if (id === 'erklaerbaer') {
+      const rows = h.results[0] ?? [];
+      expect(rows.find((x) => x.name === 'Karim')?.label, 'Karim 2 Treffer').toBe('5 Pkt');
+      expect(rows.find((x) => x.name === 'Anna')?.label, 'Anna 1 Treffer, 1 Tabu').toBe('3 Pkt');
+      expect(rows.find((x) => x.name === 'Karim')?.points).toBe('5');
+      expect(rows.find((x) => x.name === 'Anna')?.points).toBe('3');
     }
 
     if (id === 'schaetzfuchs') {
@@ -319,6 +347,95 @@ test.describe('Layout ohne fast, zwei Seiten', () => {
     await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-verraeter-reveal-${k}`)));
     expect(errors).toEqual([]);
   });
+
+  test('pokerface: Mission, Gespräch vor und nach ERLEDIGT, Raten vor und nach dem Tippen und Auflösung bestehen audit', async ({ context }) => {
+    test.setTimeout(90_000);
+    const errors: string[] = [];
+    const run = { only: 'pokerface', rounds: 1, seed: SEED, fast: false };
+    const host = await openHost(context, 'Karim', errors, run);
+    const guest = await joinByCode(context, host.code, 'Anna', errors, run);
+    const pages = [host.page, guest];
+    await host.page.getByTestId('btn-start').click();
+
+    for (const p of pages) {
+      await screen(p, 'game').waitFor({ timeout: 15_000 });
+      await expect(screen(p, 'game')).toHaveAttribute('data-state', 'mission');
+      await expect(tid(p, 'pf-mission')).toBeVisible();
+      await expect(tid(p, 'btn-done-mission')).toHaveCount(0);
+    }
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-pokerface-mission-${k}`)));
+
+    for (const p of pages) {
+      await expect(screen(p, 'game')).toHaveAttribute('data-state', 'talk', { timeout: 15_000 });
+      await expect(tid(p, 'btn-done-mission')).toBeVisible();
+    }
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-pokerface-talk-${k}`)));
+
+    await tid(host.page, 'btn-done-mission').click({ timeout: 2000 });
+    await expect(tid(host.page, 'pf-done')).toBeVisible();
+    await expect(tid(host.page, 'btn-done-mission')).toHaveCount(0);
+    await expect(tid(guest, 'pf-done')).toHaveCount(0);
+    await expect(tid(guest, 'btn-done-mission')).toBeVisible();
+    await audit(host.page, 'game', 'duo-pokerface-erledigt-0');
+    await tid(guest, 'btn-done-mission').click({ timeout: 2000 });
+
+    for (const p of pages) {
+      await expect(screen(p, 'game')).toHaveAttribute('data-state', 'guess');
+      await expect(tid(p, 'choice')).toHaveCount(4);
+      await expect(p.locator('.choice-pad')).toHaveAttribute('data-cols', '1');
+    }
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-pokerface-guess-${k}`)));
+    for (const p of pages) expect(await clipped(p), 'abgeschnittener Text').toBe(0);
+
+    await tid(host.page, 'choice').first().click({ timeout: 2000 });
+    await expect(screen(host.page, 'game')).toHaveAttribute('data-state', 'sent');
+    await expect(screen(guest, 'game')).toHaveAttribute('data-state', 'guess');
+    await audit(host.page, 'game', 'duo-pokerface-sent-0');
+    await tid(guest, 'choice').first().click({ timeout: 2000 });
+
+    for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'reveal');
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-pokerface-reveal-${k}`)));
+    expect(errors).toEqual([]);
+  });
+
+  test('erklaerbaer: Erklären, Rater-Sicht, nach einem Skip und Auflösung über Skip-Drain bestehen audit', async ({ context }) => {
+    test.setTimeout(90_000);
+    const errors: string[] = [];
+    const run = { only: 'erklaerbaer', rounds: 1, seed: SEED, fast: false };
+    const host = await openHost(context, 'Karim', errors, run);
+    const guest = await joinByCode(context, host.code, 'Anna', errors, run);
+    const pages = [host.page, guest];
+    await host.page.getByTestId('btn-start').click();
+
+    for (const p of pages) {
+      await screen(p, 'game').waitFor({ timeout: 15_000 });
+      await expect(screen(p, 'game')).toHaveAttribute('data-state', 'explain');
+    }
+    const roles = await Promise.all(pages.map((p) => screen(p, 'game').getAttribute('data-role')));
+    expect([...roles].sort()).toEqual(['explainer', 'guesser']);
+    const exp = pages[roles.indexOf('explainer')] as Page;
+    const gue = pages[roles.indexOf('guesser')] as Page;
+    for (const id of ['eb-term', 'btn-hit', 'btn-skip', 'btn-taboo']) await expect(tid(exp, id)).toBeVisible();
+    await expect(tid(gue, 'eb-term')).toHaveCount(0);
+    await expect(tid(gue, 'btn-hit')).toHaveCount(0);
+    await expect(tid(gue, 'eb-count')).toBeVisible();
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-erklaerbaer-explain-${k}`)));
+
+    const before = await tid(exp, 'eb-term').textContent();
+    await tid(exp, 'btn-skip').click({ timeout: 2000 });
+    await expect(tid(exp, 'eb-term')).toHaveAttribute('data-c', '1');
+    await expect(tid(exp, 'eb-term')).not.toHaveText(before ?? '');
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-erklaerbaer-skipped-${k}`)));
+
+    for (let c = 2; c <= 12; c++) {
+      await tid(exp, 'btn-skip').click({ timeout: 2000 });
+      await expect(tid(exp, 'eb-term')).toHaveAttribute('data-c', String(c));
+    }
+    for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'reveal', { timeout: 10_000 });
+    for (const p of pages) await expect(tid(p, 'eb-log')).toBeVisible();
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-erklaerbaer-reveal-${k}`)));
+    expect(errors).toEqual([]);
+  });
 });
 
 test('verraeter: drei Spieler, Rollen vor dem Start gelesen, die Crew stimmt gegen den Verräter', async ({ context }) => {
@@ -374,5 +491,52 @@ test('verraeter: drei Spieler, Rollen vor dem Start gelesen, die Crew stimmt geg
     }
   }
   expect(recs[1]?.results[0]).toEqual(recs[0]?.results[0]);
+  expect(errors).toEqual([]);
+});
+
+test('erklaerbaer: drei Spieler, je Zug Erklärer, Wächter und Rater, Wächter-Tabu, Picker zeigt den Rater', async ({ context }) => {
+  test.setTimeout(60_000);
+  const errors: string[] = [];
+  await context.addInitScript(WATCH_GAMES);
+  const run = { only: 'erklaerbaer', rounds: 1, seed: SEED };
+  const host = await openHost(context, 'Karim', errors, run);
+  const a = await joinByCode(context, host.code, 'Anna', errors, run);
+  const b = await joinByCode(context, host.code, 'Ben', errors, run);
+  const pages = [host.page, a, b];
+  const names = ['Karim', 'Anna', 'Ben'];
+  await tid(host.page, 'btn-start').click();
+
+  const played = await Promise.all(pages.map((p) => playRound(p, { bias: 0 })));
+  await Promise.all(pages.map(async (p) => (await gameGone(p), await screen(p, 'podium').waitFor({ timeout: 30_000 }))));
+  const recs = (await Promise.all(pages.map(readRec))) as Rec[];
+
+  const expected = new Map(names.map((n) => [n, 0]));
+  for (const k of [0, 1]) {
+    const turn = played.map((x) => x.seen?.find((s) => s.k === k));
+    expect(turn.every((t) => t !== undefined), `Zug ${k} auf allen Seiten gesehen`).toBe(true);
+    const roles = turn.map((t) => t?.role);
+    expect([...roles].sort(), `Zug ${k}`).toEqual(['explainer', 'guard', 'guesser']);
+    const [e, g, r] = ['explainer', 'guard', 'guesser'].map((role) => turn[roles.indexOf(role)]) as [EbSeen, EbSeen, EbSeen];
+    expect(e.hasTaboo, 'Erklärer hat kein TABU').toBe(false);
+    expect(g.hasTaboo, 'Wächter hat TABU').toBe(true);
+    expect(r.hasTaboo).toBe(false);
+    expect(r.cards.every((c) => c.term === null), 'Rater sieht keinen Begriff').toBe(true);
+    expect(e.cards.every((c) => c.term !== null && c.term !== '')).toBe(true);
+    const common = e.cards.filter((c) => g.cards.some((x) => x.c === c.c));
+    expect(common.length, 'gemeinsame Karte von Erklärer und Wächter').toBeGreaterThan(0);
+    for (const c of common) expect(g.cards.find((x) => x.c === c.c)?.term, `Karte ${c.c}`).toBe(c.term);
+    expect(e.picks, 'Picker zeigt genau den Rater').toEqual([names[roles.indexOf('guesser')]]);
+    for (const role of ['explainer', 'guesser']) expected.set(names[roles.indexOf(role)] as string, (expected.get(names[roles.indexOf(role)] as string) ?? 0) + 1);
+  }
+
+  for (const [k, rec] of recs.entries()) {
+    const states = new Set(rec.rounds.flatMap((x) => x.states));
+    for (const s of CONTRACT.erklaerbaer) expect(states.has(s), `Seite ${k} Zustand ${s}`).toBe(true);
+    const rows = rec.results[0] ?? [];
+    expect(rows).toHaveLength(3);
+    for (const row of rows) expect(row.label, `${row.name} Seite ${k}`).toBe(`${expected.get(row.name)} Pkt`);
+  }
+  expect(recs[1]?.results[0]).toEqual(recs[0]?.results[0]);
+  expect(recs[2]?.results[0]).toEqual(recs[0]?.results[0]);
   expect(errors).toEqual([]);
 });

@@ -18,7 +18,7 @@ describe('Registry', () => {
     expect(Object.keys(GAMES).sort()).toEqual([...GAME_IDS].sort());
   });
 
-  it('die genaue Liste der zehn Spiele, luegenbaron und verraeter am Ende, Akzente hot und cyan', () => {
+  it('die genaue Liste der zwoelf Spiele, pokerface und erklaerbaer am Ende, Akzente lime und orange', () => {
     expect([...GAME_IDS]).toEqual([
       'blitz',
       'hammer',
@@ -30,6 +30,8 @@ describe('Registry', () => {
       'stopp',
       'luegenbaron',
       'verraeter',
+      'pokerface',
+      'erklaerbaer',
     ]);
     expect(GAMES.gleichklang.accent).toBe('cyan');
     expect(GAMES.werwuerde.accent).toBe('hot');
@@ -37,10 +39,12 @@ describe('Registry', () => {
     expect(GAMES.stopp.accent).toBe('lime');
     expect(GAMES.luegenbaron.accent).toBe('hot');
     expect(GAMES.verraeter.accent).toBe('cyan');
-    expect(GAMES.luegenbaron.drinks).toBeUndefined();
-    expect(GAMES.verraeter.drinks).toBeUndefined();
-    expect(GAMES.luegenbaron.drinkOnly).toBeUndefined();
-    expect(GAMES.verraeter.drinkOnly).toBeUndefined();
+    expect(GAMES.pokerface.accent).toBe('lime');
+    expect(GAMES.erklaerbaer.accent).toBe('orange');
+    for (const id of ['luegenbaron', 'verraeter', 'pokerface', 'erklaerbaer'] as const) {
+      expect(GAMES[id].drinks, id).toBeUndefined();
+      expect(GAMES[id].drinkOnly, id).toBeUndefined();
+    }
     expect(typeof GAMES.werwuerde.drinks).toBe('function');
     expect(GAMES.gleichklang.drinks).toBeUndefined();
     expect(GAMES.bombe.drinks).toBeUndefined();
@@ -190,6 +194,24 @@ const STAGED: Partial<Record<GameId, Stage>> = {
   },
   verraeter: (s) =>
     s.phase === 'vote' ? { key: 'vote', host: [{ a: 'tip', same: s.same }], guest: [{ a: 'tip', same: !s.same }] } : null,
+  pokerface: (s) => {
+    if (s.phase === 'talk') return { key: 'talk', host: [{ a: 'done' }], guest: [{ a: 'done' }] };
+    if (s.phase !== 'guess') return null;
+    return { key: 'guess', host: [{ a: 'tip', i: s.answer[HOST] }], guest: [{ a: 'tip', i: (s.answer[GUEST] + 1) % 4 }] };
+  },
+  erklaerbaer: (s) => {
+    if (s.phase !== 'explain') return null;
+    const mine = s.explainers[s.k] as string;
+    const other = mine === HOST ? GUEST : HOST;
+    const c = s.pos as number;
+    const first = { a: 'hit', k: s.k, c, to: other };
+    const second = mine === HOST ? { a: 'hit', k: s.k, c: c + 1, to: other } : { a: 'taboo', k: s.k, c: c + 1 };
+    return {
+      key: `turn${s.k}`,
+      host: mine === HOST ? [first, second] : [],
+      guest: mine === GUEST ? [first, second] : [],
+    };
+  },
 };
 
 describe('Integration: Draht-Payloads, besserer Spieler gewinnt', () => {

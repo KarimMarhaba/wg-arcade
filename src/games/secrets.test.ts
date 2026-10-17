@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { bombe, type BombeState } from './bombe/logic';
+import { erklaerbaer, type EbState } from './erklaerbaer/logic';
+import { ringNext } from './common';
 import { gleichklang } from './gleichklang/logic';
 import { luegenbaron, type LbState } from './luegenbaron/logic';
+import { pokerface, type PfState } from './pokerface/logic';
+import { MISSIONS } from './pokerface/missions';
+import { TERMS, type Term } from './erklaerbaer/terms';
 import { stopp } from './stopp/logic';
 import { verraeter, type VrState } from './verraeter/logic';
 import type { GameDef } from './types';
@@ -172,6 +177,47 @@ const vrWordSecrets = (s: VrState, owner: string): string[] =>
       ? ['"traitor', '"cat"', '"pair', '"decoys', '"role', 'Kategorie']
       : [SECRET_WORD];
 
+type PfAt = 'mission' | 'talk' | 'guess';
+
+const pfDone = (i: number): boolean => i % 2 === 0;
+const pfTip = (i: number): number => i % 4;
+const pfText = (s: PfState, pid: string): string => (MISSIONS[s.missions[pid] as number] as { mission: string }).mission;
+const pfRater = (s: PfState, pid: string): string => s.order[(s.order.indexOf(pid) + s.order.length - 1) % s.order.length] as string;
+
+function pokerfaceAt(n: number, phase: PfAt): PfState {
+  let s = start(pokerface, n);
+  if (phase === 'mission') return s;
+  s = tickAll(pokerface, s, s.endsAt, n);
+  s = pidsOf(n).reduce((q, pid, i) => {
+    if (!pfDone(i)) return q;
+    const x = pokerface.parseInput({ a: 'done' });
+    if (x === null) throw new Error('ungueltig');
+    return pokerface.input(q, pid, x, NOW);
+  }, s);
+  if (phase === 'talk') return s;
+  s = tickAll(pokerface, s, s.endsAt, n);
+  return pidsOf(n).reduce((q, pid, i) => {
+    const x = pokerface.parseInput({ a: 'tip', i: pfTip(i) });
+    if (x === null) throw new Error('ungueltig');
+    return pokerface.input(q, pid, x, NOW);
+  }, s);
+}
+
+const pfRaw = ['"missions"', '"answer"'];
+
+const ebStart = (n: number): EbState => {
+  const s = start(erklaerbaer, n);
+  const to = s.pids.find((p) => p !== s.explainers[0] && p !== (n >= 3 ? ringNext(s.order, s.explainers[0] as string) : null));
+  const i = erklaerbaer.parseInput({ a: 'hit', k: 0, c: 0, ...(to === undefined ? {} : { to }) });
+  if (i === null) throw new Error('ungueltig');
+  return erklaerbaer.input(s, s.explainers[0] as string, i, NOW);
+};
+
+const ebGuard = (s: EbState): string | null => (s.pids.length >= 3 ? (ringNext(s.order, s.explainers[s.k] as string) ?? null) : null);
+const ebGuessers = (s: EbState): string[] => s.pids.filter((p) => p !== s.explainers[s.k] && p !== ebGuard(s));
+const ebWords = (c: Term): string[] => [c.term, ...c.taboo].map((w) => `"${w}"`);
+const ebCard = (s: EbState, at: number): Term => TERMS[s.deck[at] as number] as Term;
+
 const SECRET_CASES: SecretCase[] = [
   {
     name: 'luegenbaron Tippphase (Wahrheitsfeld, Seed-Standard, Tipp-Map)',
@@ -238,6 +284,47 @@ const SECRET_CASES: SecretCase[] = [
     secrets: (_s, owner) => {
       const dev = devOf(indexOf(owner));
       return ['"devs', `${quoted(owner)}:[${dev}`, `:${dev},`, `:${dev}}`, `[${dev},`, `[${dev}]`];
+    },
+  },
+  {
+    name: 'pokerface Mission (Missionstext, Rohzustand)',
+    def: pokerface,
+    setup: (n) => pokerfaceAt(n, 'mission'),
+    secrets: (s: PfState, owner) => [pfText(s, owner), ...pfRaw],
+  },
+  {
+    name: 'pokerface Gespraech (Missionstext, ERLEDIGT-Status, Rohzustand)',
+    def: pokerface,
+    setup: (n) => pokerfaceAt(n, 'talk'),
+    secrets: (s: PfState, owner) => [pfText(s, owner), `${quoted(owner)}:true`, '"done":{', ...pfRaw],
+  },
+  {
+    name: 'pokerface Raten (Missionstext ausser beim Rater des Besitzers)',
+    def: pokerface,
+    setup: (n) => pokerfaceAt(n, 'guess'),
+    secrets: (s: PfState, owner) => [pfText(s, owner), ...pfRaw],
+    from: (s: PfState, owner) => s.pids.filter((p) => p !== owner && p !== pfRater(s, owner)),
+  },
+  {
+    name: 'pokerface Raten (Tipps und ERLEDIGT-Status gegen alle anderen)',
+    def: pokerface,
+    setup: (n) => pokerfaceAt(n, 'guess'),
+    secrets: (s: PfState, owner) => [`${quoted(owner)}:${pfTip(s.pids.indexOf(owner))}`, `${quoted(owner)}:true`, '"tips"', '"done":{'],
+  },
+  {
+    name: 'erklaerbaer Zug (Begriff und Tabus nur bei Erklaerer und Waechter, gegen die Rater)',
+    def: erklaerbaer,
+    setup: ebStart,
+    secrets: (s: EbState) => [...ebWords(ebCard(s, s.pos)), '"deck"', '"pos"'],
+    from: ebGuessers,
+  },
+  {
+    name: 'erklaerbaer Zug (die naechsten Karten bei niemandem)',
+    def: erklaerbaer,
+    setup: ebStart,
+    secrets: (s: EbState) => {
+      const now = new Set(ebWords(ebCard(s, s.pos)));
+      return [1, 2, 3, 4].flatMap((d) => ebWords(ebCard(s, s.pos + d))).filter((w) => !now.has(w));
     },
   },
   { name: 'gleichklang Frage', def: gleichklang, setup: gleichklangQuestion, secrets: (_s, owner) => [quoted(owner)] },

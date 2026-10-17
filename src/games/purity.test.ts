@@ -96,13 +96,17 @@ describe('Spiellogik-Reinheit (Glob über src/games)', () => {
       'luegenbaron/topics.ts',
       'verraeter/logic.ts',
       'verraeter/words.ts',
+      'pokerface/logic.ts',
+      'pokerface/missions.ts',
+      'erklaerbaer/logic.ts',
+      'erklaerbaer/terms.ts',
       'common.ts',
       'colors.ts',
       'resume.ts',
       'index.ts',
     ])
       expect(FILES, known).toContain(known);
-    for (const skipped of ['luegenbaron/view.ts', 'verraeter/view.ts', 'bombe/view.ts', 'stopp/view.ts', 'blitz/view.ts', 'views.ts', 'types.ts', 'blitz/logic.test.ts', 'purity.test.ts'])
+    for (const skipped of ['pokerface/view.ts', 'erklaerbaer/view.ts', 'luegenbaron/view.ts', 'verraeter/view.ts', 'bombe/view.ts', 'stopp/view.ts', 'blitz/view.ts', 'views.ts', 'types.ts', 'blitz/logic.test.ts', 'purity.test.ts'])
       expect(FILES, skipped).not.toContain(skipped);
     expect(FILES.length).toBeGreaterThanOrEqual(13);
   });

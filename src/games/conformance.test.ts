@@ -4,10 +4,12 @@ import { DRINK_CAP, type DrinkPlan, type RawDrinks } from '../engine/drinks';
 import { isRecord } from './common';
 import { blitz } from './blitz/logic';
 import { bombe } from './bombe/logic';
+import { erklaerbaer, type EbState } from './erklaerbaer/logic';
 import { farbfalle } from './farbfalle/logic';
 import { gleichklang } from './gleichklang/logic';
 import { hammer } from './hammer/logic';
 import { luegenbaron, type LbState } from './luegenbaron/logic';
+import { pokerface } from './pokerface/logic';
 import { schaetzfuchs } from './schaetzfuchs/logic';
 import { stopp } from './stopp/logic';
 import { verraeter, type VrState } from './verraeter/logic';
@@ -56,6 +58,21 @@ const vrCase: Case = {
   prep: (s: VrState, now) => fastForward(verraeter, s, now, (q) => q.phase === 'vote'),
 };
 
+const pfCase: Case = {
+  def: pokerface,
+  first: () => ({ a: 'done' }),
+  finish: () => [{ a: 'done' }],
+  prep: (s, now) => fastForward(pokerface, s, now, (q) => q.phase === 'talk'),
+};
+
+const DRAIN = 12;
+const ebCase: Case = {
+  def: erklaerbaer,
+  first: (s: EbState) => ({ a: 'skip', k: s.k, c: s.pos }),
+  finish: (s: EbState) => Array.from({ length: DRAIN }, (_, i) => ({ a: 'skip', k: s.k, c: s.pos + i })),
+  prep: (s: EbState, now) => fastForward(erklaerbaer, s, now, (q) => q.phase === 'explain' && q.explainers[q.k] === 'p0'),
+};
+
 const CASES: Case[] = [
   { def: blitz, first: () => blitzInputs[0], finish: () => blitzInputs },
   { def: hammer, first: () => ({ n: 12, final: true }), finish: () => [{ n: 12, final: true }] },
@@ -71,6 +88,8 @@ const CASES: Case[] = [
   { def: stopp, first: () => ({ k: 0, devMs: 300 }), finish: () => [{ k: 0, devMs: 300 }] },
   lbCase,
   vrCase,
+  pfCase,
+  ebCase,
 ];
 
 const GARBAGE: unknown[] = [
@@ -265,6 +284,40 @@ describe('Rollenspiele: prep spult bis in eine Tipp- bzw. Abstimmungsphase, in d
     const b = begin(vrCase, 1, 1);
     expect(b.s.phase).toBe('word');
     expect(b.now).toBe(NOW);
+  });
+});
+
+describe('pokerface und erklaerbaer: prep findet die Phase, in der p0 eingeben darf', () => {
+  for (const speed of SPEEDS) {
+    it(`pokerface landet fuer 3 Spieler in talk und p0 darf ERLEDIGT melden (speed ${speed})`, () => {
+      const { s, now } = begin(pfCase, 3, speed);
+      expect(s.phase).toBe('talk');
+      expect(now).toBe(NOW + s.durs.mission);
+      expect(pokerface.input(s, 'p0', parsed(pokerface, pfCase.first(s, 'p0')), now)).not.toBe(s);
+    });
+
+    it(`erklaerbaer findet fuer 3 Spieler den Zug, in dem p0 erklaert (speed ${speed})`, () => {
+      const { s, now } = begin(ebCase, 3, speed);
+      expect(s.phase).toBe('explain');
+      expect(s.explainers[s.k]).toBe('p0');
+      expect(s.k).toBe(1);
+      expect(now).toBe(NOW + s.durs.turn + s.durs.reveal);
+      expect(erklaerbaer.input(s, 'p0', parsed(erklaerbaer, ebCase.first(s, 'p0')), now)).not.toBe(s);
+    });
+
+    it(`erklaerbaer: zwoelf Skips von p0 beenden den Zug beim naechsten Tick (speed ${speed})`, () => {
+      const { s, now } = begin(ebCase, 3, speed);
+      const done = ebCase.finish(s, 'p0').reduce((q, raw) => erklaerbaer.input(q, 'p0', parsed(erklaerbaer, raw), now), s);
+      expect(done.phase).toBe('explain');
+      expect(erklaerbaer.tick(done, now + 1, new Set(pidsOf(3))).phase).toBe('reveal');
+    });
+  }
+
+  it('erklaerbaer zu zweit und allein: p0 erklaert im gefundenen Zug', () => {
+    for (const n of [1, 2]) {
+      const { s } = begin(ebCase, n, 1);
+      expect(s.explainers[s.k]).toBe('p0');
+    }
   });
 });
 
