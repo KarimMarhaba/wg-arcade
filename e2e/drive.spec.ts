@@ -17,18 +17,22 @@ test('drive: ein act je (state, step, role), Wiederkehr löst nicht erneut aus, 
   const seen: Tuple[] = [];
   const done = drive(page, async (t) => {
     seen.push(t);
-    const next: Record<string, Tuple | null> = {
+    const next: Record<string, Tuple> = {
       'a|1|narrator': { state: 'a', step: '2', role: 'narrator' },
       'a|2|narrator': { state: 'a', step: '2', role: 'listener' },
       'a|2|listener': { state: 'b' },
-      'b||': { state: 'a', step: '1', role: 'narrator' },
     };
     const n = next[`${t.state}|${t.step ?? ''}|${t.role ?? ''}`];
-    if (n === undefined) throw new Error('unerwartet');
+    if (n === undefined) return;
     await set(page, n);
-    if (t.state === 'b') {
-      await page.waitForTimeout(150);
-      await set(page, null);
+    if (t.state === 'a' && t.role === 'listener') {
+      await page.evaluate(
+        (back) => {
+          setTimeout(() => (document.body.innerHTML = back), 100);
+          setTimeout(() => (document.body.innerHTML = ''), 300);
+        },
+        ROOT({ state: 'a', step: '1', role: 'narrator' }),
+      );
     }
   });
   await done;
@@ -38,6 +42,18 @@ test('drive: ein act je (state, step, role), Wiederkehr löst nicht erneut aus, 
     { state: 'a', step: '2', role: 'listener' },
     { state: 'b' },
   ]);
+});
+
+test('drive: unverändertes Tupel löst act nicht erneut aus', async ({ page }) => {
+  await page.setContent(ROOT({ state: 'x', step: '1' }));
+  let calls = 0;
+  await drive(page, async () => {
+    calls++;
+    await page.evaluate(() => {
+      setTimeout(() => (document.body.innerHTML = ''), 300);
+    });
+  });
+  expect(calls).toBe(1);
 });
 
 test('drive: kehrt sofort zurück, wenn kein Game-Root da ist', async ({ page }) => {
