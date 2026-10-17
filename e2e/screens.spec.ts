@@ -321,3 +321,22 @@ test('Lobby: Pop nur für neu hinzugekommene Spieler', async ({ context }) => {
   await expect.poll(pops).toEqual([annaPid, benPid]);
   expect(errors).toEqual([]);
 });
+
+test('Punch auf dem Screen-Root startet die Enter-Animation nicht neu', async ({ context }) => {
+  const errors: string[] = [];
+  const h = await openHost(context, 'Karim', errors);
+  const names = () =>
+    h.page.evaluate(() =>
+      document
+        .querySelector<HTMLElement>('.frame')!
+        .getAnimations()
+        .map((a) => (a as CSSAnimation).animationName),
+    );
+  await expect.poll(names).toEqual([]);
+  await h.page.evaluate(() => document.querySelector('.frame')!.classList.add('punch'));
+  expect((await names()).sort()).toEqual(['punch']);
+  await expect.poll(names).toEqual([]);
+  await h.page.evaluate(() => document.querySelector('.frame')!.classList.remove('punch'));
+  expect(await names()).toEqual([]);
+  expect(errors).toEqual([]);
+});

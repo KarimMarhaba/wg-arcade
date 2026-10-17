@@ -97,6 +97,17 @@
   animation: punch var(--d-punch) linear;
 }
 
+.frame.punch,
+.enter.punch {
+  animation:
+    enter var(--d-base) var(--ease-out) backwards,
+    punch var(--d-punch) linear;
+}
+
+.enter.punch {
+  animation-delay: calc(var(--i, 0) * var(--stagger)), 0ms;
+}
+
 .flash {
   position: fixed;
   inset: 0;
