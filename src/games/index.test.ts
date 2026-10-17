@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEngine } from '../engine/party';
 import type { Party } from '../engine/types';
-import { GAMES } from './index';
+import { GAMES, gamesFor } from './index';
 import { QUESTIONS } from './schaetzfuchs/questions';
 import { GAME_IDS, type GameId } from './types';
 
@@ -13,6 +13,29 @@ describe('Registry', () => {
       expect(GAMES[id].title).not.toBe('');
       expect(GAMES[id].rule).not.toBe('');
     }
+  });
+});
+
+describe('gamesFor', () => {
+  it('liefert ohne only alle 4 Spiele', () => {
+    expect(Object.keys(gamesFor()).sort()).toEqual([...GAME_IDS].sort());
+    expect(Object.keys(gamesFor(undefined)).sort()).toEqual([...GAME_IDS].sort());
+  });
+
+  it('liefert mit only genau das eine Spiel', () => {
+    for (const id of GAME_IDS) {
+      const reg = gamesFor(id);
+      expect(Object.keys(reg)).toEqual([id]);
+      expect(reg[id]).toBe(GAMES[id]);
+    }
+  });
+
+  it('die Ein-Spiel-Registry taugt für die Engine', () => {
+    const one = createEngine(gamesFor('hammer'));
+    let p = one.create('ABCD', 5, 'h', { dev: true, speed: 1 });
+    p = one.hello(p, 'h', 'Host', 0).p;
+    p = one.control(p, { a: 'start' }, 0);
+    expect(p.order).toEqual(['hammer', 'hammer', 'hammer', 'hammer', 'hammer']);
   });
 });
 

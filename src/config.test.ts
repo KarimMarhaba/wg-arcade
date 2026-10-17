@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseFlags } from './config';
+import { joinUrl, parseFlags } from './config';
 import { GAME_IDS } from './games/types';
 
 describe('parseFlags', () => {
@@ -47,5 +47,24 @@ describe('parseFlags', () => {
 
   it('only ohne dev wird ignoriert', () => {
     expect(parseFlags(`?only=${GAME_IDS[0]}`).only).toBeUndefined();
+  });
+});
+
+describe('joinUrl', () => {
+  const O = 'https://karimmarhaba.github.io';
+  const B = '/wg-arcade/';
+
+  it('hängt #/j/CODE an Origin und Base', () => {
+    expect(joinUrl(O, B, '', 'ABCD')).toBe('https://karimmarhaba.github.io/wg-arcade/#/j/ABCD');
+  });
+
+  it('übernimmt nur net, dev und fast', () => {
+    expect(joinUrl(O, B, '?net=local&dev=1&fast=1', 'ABCD')).toBe(`${O}${B}?net=local&dev=1&fast=1#/j/ABCD`);
+    expect(joinUrl(O, B, '?only=blitz&net=local&foo=bar&speed=5', 'WXYZ')).toBe(`${O}${B}?net=local#/j/WXYZ`);
+  });
+
+  it('lässt fehlende Flags weg und akzeptiert Search ohne ?', () => {
+    expect(joinUrl(O, B, 'dev=1', 'ABCD')).toBe(`${O}${B}?dev=1#/j/ABCD`);
+    expect(joinUrl(O, B, '?only=hammer', 'ABCD')).toBe(`${O}${B}#/j/ABCD`);
   });
 });
