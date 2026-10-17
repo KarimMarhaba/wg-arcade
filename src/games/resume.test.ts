@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { BlitzView } from './blitz/logic';
+import type { BombeView } from './bombe/logic';
 import type { FarbfalleView } from './farbfalle/logic';
 import type { HammerView } from './hammer/logic';
-import { resumeBlitz, resumeFarbfalle, resumeHammer, resumeSchaetzfuchs } from './resume';
+import { resumeBlitz, resumeBombe, resumeFarbfalle, resumeHammer, resumeSchaetzfuchs, resumeStopp } from './resume';
 import type { SchaetzfuchsView } from './schaetzfuchs/logic';
+import type { StoppView } from './stopp/logic';
 
 const OFFSET = 7_000;
 const toLocal = (t: number): number => t + OFFSET;
@@ -32,6 +34,28 @@ const ask = (myGuess: number | null): Extract<SchaetzfuchsView, { phase: 'ask' }
   total: 1,
 });
 
+const bombe = (b: number, n: number, res: BombeView['mine']['res'] = []): BombeView => ({
+  dur: 4_500,
+  endsAt: ENDS,
+  show: 90,
+  mine: { b, n, res },
+  live: [],
+});
+const STARTS = 33_000;
+const stopp = (k: number, sent: boolean): Extract<StoppView, { phase: 'run' }> => ({
+  phase: 'run',
+  k,
+  of: 3,
+  target: 700,
+  lead: 150,
+  startAt: STARTS,
+  endsAt: STARTS + 1_200,
+  dur: 1_350,
+  sent,
+  got: 0,
+  total: 1,
+});
+
 describe('Wiedereinstieg: Erst-Mount', () => {
   it('blitz: Ende = Mount + dur, Start beim ersten Versuch', () => {
     expect(resumeBlitz(blitz([null, null, null]), MOUNT, toLocal)).toEqual({ end: MOUNT + 4_000, next: 0 });
@@ -50,7 +74,31 @@ describe('Wiedereinstieg: Erst-Mount', () => {
   });
 });
 
+describe('Wiedereinstieg: Erst-Mount, bombe und stopp', () => {
+  it('bombe: Ende = Mount + dur, Ballon 0, Zaehler 0', () => {
+    expect(resumeBombe(bombe(0, 0), MOUNT, toLocal)).toEqual({ end: MOUNT + 4_500, b: 0, n: 0 });
+  });
+
+  it('stopp: Start = Mount + Vorlauf, nicht gesendet', () => {
+    expect(resumeStopp(stopp(0, false), MOUNT, toLocal)).toEqual({ start: MOUNT + 150, sent: false });
+  });
+});
+
 describe('Wiedereinstieg: Mount mit Fortschritt in der Sicht', () => {
+  it('bombe: Ende = toLocal(endsAt), Ballon und Zaehler aus der Sicht', () => {
+    expect(resumeBombe(bombe(0, 3), MOUNT, toLocal)).toEqual({ end: ENDS + OFFSET, b: 0, n: 3 });
+    expect(resumeBombe(bombe(2, 0, [{ s: 'pop', pts: 0 }, { s: 'cash', pts: 4 }]), MOUNT, toLocal)).toEqual({
+      end: ENDS + OFFSET,
+      b: 2,
+      n: 0,
+    });
+  });
+
+  it('stopp: Start = toLocal(startAt) bei gesendetem Versuch und ab dem zweiten Versuch', () => {
+    expect(resumeStopp(stopp(0, true), MOUNT, toLocal)).toEqual({ start: STARTS + OFFSET, sent: true });
+    expect(resumeStopp(stopp(1, false), MOUNT, toLocal)).toEqual({ start: STARTS + OFFSET, sent: false });
+  });
+
   it('blitz: Ende = toLocal(endsAt), weiter beim ersten null', () => {
     expect(resumeBlitz(blitz([120, null, null]), MOUNT, toLocal)).toEqual({ end: ENDS + OFFSET, next: 1 });
     expect(resumeBlitz(blitz([120, 1000, null]), MOUNT, toLocal)).toEqual({ end: ENDS + OFFSET, next: 2 });

@@ -100,6 +100,32 @@ test.describe('Reduced Motion', () => {
   });
 });
 
+test.describe('Reduced Motion: Ballon und Ring', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  const effective = (page: Page, testid: string): Promise<{ animation: number; transition: number }> =>
+    page.evaluate((id) => {
+      const el = document.querySelector(`[data-testid=${id}]`);
+      if (!el) throw new Error(`kein Element: ${id}`);
+      const longest = (list: string): number => Math.max(...list.split(',').map((x) => parseFloat(x)));
+      const css = getComputedStyle(el);
+      return { animation: longest(css.animationDuration), transition: longest(css.transitionDuration) };
+    }, testid);
+
+  for (const [id, state, testid] of [['bombe', 'pump', 'balloon'], ['stopp', 'blind', 'stopp-ring']] as const)
+    test(`${id}: ${testid} hat keine wirksame Animation oder Transition`, async ({ context }) => {
+      test.setTimeout(60_000);
+      const errors: string[] = [];
+      const page = await start(context, errors, { only: id });
+      await expect(screen(page, 'game')).toHaveAttribute('data-state', state, { timeout: 20_000 });
+      if (id === 'bombe') await tid(page, 'btn-pump').click();
+      const e = await effective(page, testid);
+      expect(e.animation).toBeLessThanOrEqual(0.001);
+      expect(e.transition).toBeLessThanOrEqual(0.001);
+      expect(errors).toEqual([]);
+    });
+});
+
 test('Hammer zählt schon beim pointerdown (mouse.down ohne up)', async ({ context }) => {
   test.setTimeout(60_000);
   const errors: string[] = [];

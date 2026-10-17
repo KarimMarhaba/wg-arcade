@@ -128,4 +128,72 @@ test.describe('Layout ohne fast, zwei Seiten', () => {
       await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-${id}-reveal-${k}`)));
       expect(errors).toEqual([]);
     });
+
+  test('bombe: Pumpphase und Zustand nach dem Kassieren des Gasts bestehen audit, die Leiste verrät keine Zahl', async ({ context }) => {
+    test.setTimeout(90_000);
+    const errors: string[] = [];
+    const run = { only: 'bombe', rounds: 1, seed: SEED, fast: false };
+    const host = await openHost(context, 'Karim', errors, run);
+    const guest = await joinByCode(context, host.code, 'Anna', errors, run);
+    const pages = [host.page, guest];
+    await host.page.getByTestId('btn-start').click();
+
+    for (const p of pages) {
+      await screen(p, 'game').waitFor({ timeout: 15_000 });
+      await expect(screen(p, 'game')).toHaveAttribute('data-state', 'pump');
+      await expect(tid(p, 'btn-pump')).toBeVisible();
+      await expect(tid(p, 'btn-cash')).toBeVisible();
+      await expect(tid(p, 'balloon')).toBeVisible();
+      await expect(tid(p, 'bombe-live')).toBeVisible();
+    }
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-bombe-pump-${k}`)));
+
+    await tid(guest, 'btn-pump').click();
+    await tid(guest, 'btn-cash').click();
+    await expect(host.page.locator('[data-testid=bombe-live] [data-s=kassiert]')).toHaveCount(1);
+    await expect(tid(host.page, 'bombe-live')).not.toHaveText(/\d/);
+    await expect(tid(guest, 'bombe-live')).not.toHaveText(/\d/);
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-bombe-cashed-${k}`)));
+    expect(errors).toEqual([]);
+  });
+
+  test('stopp: blind, abgegeben und Auflösung bestehen audit, Uhr und Balken sind in der Blendung unsichtbar', async ({ context }) => {
+    test.setTimeout(90_000);
+    const errors: string[] = [];
+    const run = { only: 'stopp', rounds: 1, seed: SEED, fast: false };
+    const host = await openHost(context, 'Karim', errors, run);
+    const guest = await joinByCode(context, host.code, 'Anna', errors, run);
+    const pages = [host.page, guest];
+    await host.page.getByTestId('btn-start').click();
+
+    await Promise.all(
+      pages.map(async (p) => {
+        await screen(p, 'game').waitFor({ timeout: 15_000 });
+        await expect(screen(p, 'game')).toHaveAttribute('data-state', 'ready');
+      }),
+    );
+    for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'blind', { timeout: 15_000 });
+    for (const p of pages) {
+      await expect(tid(p, 'btn-stop')).toBeVisible();
+      await expect(tid(p, 'stopp-clock')).toBeHidden();
+      await expect(p.locator('.game-bar')).toHaveCSS('visibility', 'hidden');
+      await expect(p.locator('.timer-fill')).toBeHidden();
+    }
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-stopp-blind-${k}`)));
+
+    await tid(host.page, 'btn-stop').click();
+    await expect(screen(host.page, 'game')).toHaveAttribute('data-state', 'sent');
+    await expect(tid(host.page, 'btn-stop')).toBeHidden();
+    await audit(host.page, 'game', 'duo-stopp-sent-0');
+
+    await tid(guest, 'btn-stop').click();
+    for (const p of pages) {
+      await expect(screen(p, 'game')).toHaveAttribute('data-state', 'reveal');
+      await expect(tid(p, 'stopp-scale')).toBeVisible();
+      await expect(tid(p, 'stopp-duo')).toBeVisible();
+      await expect(p.locator('.game-bar')).toHaveCSS('visibility', 'visible');
+    }
+    await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-stopp-reveal-${k}`)));
+    expect(errors).toEqual([]);
+  });
 });

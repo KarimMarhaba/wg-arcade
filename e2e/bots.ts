@@ -151,6 +151,49 @@ export async function playWerwuerde(page: Page): Promise<Played> {
   return { game: 'werwuerde' };
 }
 
+const stateAt = (page: Page): Promise<{ state: string; step: string } | null> =>
+  page.evaluate(() => {
+    const root = document.querySelector('[data-screen=game]');
+    return root ? { state: root.getAttribute('data-state') ?? '', step: root.getAttribute('data-step') ?? '' } : null;
+  });
+
+const MAX_PUMPS = 45;
+
+export async function playBombe(page: Page): Promise<Played> {
+  let taps = 0;
+  await drive(page, async (t) => {
+    if (t.state !== 'pump') return;
+    const click = async (testid: string): Promise<void> => {
+      const at = await firstBox(page, testid);
+      if (at) await page.mouse.click(at.x, at.y);
+      taps++;
+    };
+    if (t.step === '0') {
+      for (let i = 0; i < MAX_PUMPS; i++) {
+        const now = await stateAt(page);
+        if (now?.state !== 'pump' || now.step !== '0') break;
+        await click('btn-pump');
+      }
+      return;
+    }
+    await click('btn-pump');
+    await click('btn-pump');
+    await click('btn-cash');
+  });
+  return { game: 'bombe', taps };
+}
+
+export async function playStopp(page: Page): Promise<Played> {
+  let taps = 0;
+  await drive(page, async (t) => {
+    if (t.state !== 'blind') return;
+    const at = await firstBox(page, 'btn-stop');
+    if (at) await page.mouse.click(at.x, at.y);
+    taps++;
+  });
+  return { game: 'stopp', taps };
+}
+
 export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> {
   await page.waitForFunction(
     (head) => {
@@ -174,6 +217,10 @@ export async function playRound(page: Page, o: RoundOpts = {}): Promise<Played> 
       return playGleichklang(page);
     case 'werwuerde':
       return playWerwuerde(page);
+    case 'bombe':
+      return playBombe(page);
+    case 'stopp':
+      return playStopp(page);
     default:
       throw new Error(`unbekanntes Spiel: ${game}`);
   }

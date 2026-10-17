@@ -1,4 +1,4 @@
-export type Id = 'blitz' | 'hammer' | 'farbfalle' | 'schaetzfuchs' | 'gleichklang' | 'werwuerde';
+export type Id = 'blitz' | 'hammer' | 'farbfalle' | 'schaetzfuchs' | 'gleichklang' | 'werwuerde' | 'bombe' | 'stopp';
 
 export const LEGACY = ['blitz', 'hammer', 'farbfalle', 'schaetzfuchs'] as const;
 export type LegacyId = (typeof LEGACY)[number];
@@ -10,6 +10,8 @@ export const LABEL: Record<Id, RegExp> = {
   schaetzfuchs: /^±\d+ %$/,
   gleichklang: /^\d+ Treffer$/,
   werwuerde: /^\d+ Pkt$/,
+  bombe: /^\d+ Pkt$/,
+  stopp: /^± \d+,\d{2} s$/,
 };
 
 export const CONTRACT: Record<Id, string[]> = {
@@ -19,6 +21,8 @@ export const CONTRACT: Record<Id, string[]> = {
   schaetzfuchs: ['ask', 'reveal', 'sent'],
   gleichklang: ['ask', 'reveal', 'sent'],
   werwuerde: ['reveal', 'sent', 'vote'],
+  bombe: ['cashed', 'done', 'popped', 'pump'],
+  stopp: ['blind', 'ready', 'reveal', 'run', 'sent'],
 };
 
 export const ACCENT: Record<Id, 'lime' | 'hot' | 'cyan' | 'orange'> = {
@@ -28,4 +32,6 @@ export const ACCENT: Record<Id, 'lime' | 'hot' | 'cyan' | 'orange'> = {
   schaetzfuchs: 'orange',
   gleichklang: 'cyan',
   werwuerde: 'hot',
+  bombe: 'orange',
+  stopp: 'lime',
 };

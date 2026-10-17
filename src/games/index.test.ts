@@ -18,13 +18,16 @@ describe('Registry', () => {
     expect(Object.keys(GAMES).sort()).toEqual([...GAME_IDS].sort());
   });
 
-  it('gleichklang und werwuerde stehen in dieser Reihenfolge am Ende, Akzente cyan und hot', () => {
-    expect(GAME_IDS.slice(-2)).toEqual(['gleichklang', 'werwuerde']);
-    expect(GAME_IDS.slice(0, 4)).toEqual(['blitz', 'hammer', 'farbfalle', 'schaetzfuchs']);
+  it('die genaue Liste der acht Spiele, bombe und stopp am Ende, Akzente orange und lime', () => {
+    expect([...GAME_IDS]).toEqual(['blitz', 'hammer', 'farbfalle', 'schaetzfuchs', 'gleichklang', 'werwuerde', 'bombe', 'stopp']);
     expect(GAMES.gleichklang.accent).toBe('cyan');
     expect(GAMES.werwuerde.accent).toBe('hot');
+    expect(GAMES.bombe.accent).toBe('orange');
+    expect(GAMES.stopp.accent).toBe('lime');
     expect(typeof GAMES.werwuerde.drinks).toBe('function');
     expect(GAMES.gleichklang.drinks).toBeUndefined();
+    expect(GAMES.bombe.drinks).toBeUndefined();
+    expect(GAMES.stopp.drinks).toBeUndefined();
   });
 
   it('drinkOnly ist nur true oder fehlt, drinks nur eine Funktion oder fehlt', () => {
@@ -150,6 +153,8 @@ const WIRES: Record<GameId, Wire> = {
   },
   gleichklang: () => ({ host: [{ k: 0, i: 0, ms: 100 }], guest: [{ k: 0, i: 0, ms: 900 }] }),
   werwuerde: () => ({ host: [{ k: 0, to: HOST }], guest: [{ k: 0, to: HOST }] }),
+  bombe: () => ({ host: [{ b: 0, n: 3, cash: true }], guest: [{ b: 0, n: 2, cash: true }] }),
+  stopp: () => ({ host: [{ k: 0, devMs: 100 }], guest: [{ k: 0, devMs: 900 }] }),
 };
 
 describe('Integration: Draht-Payloads, besserer Spieler gewinnt', () => {

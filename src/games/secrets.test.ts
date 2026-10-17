@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { bombe, type BombeState } from './bombe/logic';
 import { gleichklang } from './gleichklang/logic';
+import { stopp } from './stopp/logic';
 import type { GameDef } from './types';
 import { werwuerde } from './werwuerde/logic';
 
@@ -74,7 +76,46 @@ function werwuerdeVote(n: number) {
   }, start(werwuerde, n));
 }
 
+const pumpOf = (i: number): number => (i % 3) + 1;
+const devOf = (i: number): number => 4321 + 17 * i;
+const indexOf = (pid: string): number => Number(pid.slice(1));
+
+function bombePumping(n: number): BombeState {
+  return pidsOf(n).reduce((s, pid, i) => {
+    const input = bombe.parseInput({ b: 0, n: pumpOf(i), cash: false });
+    if (input === null) throw new Error('ungueltig');
+    return bombe.input(s, pid, input, NOW);
+  }, start(bombe, n));
+}
+
+function stoppRun(n: number) {
+  return pidsOf(n).reduce((s, pid, i) => {
+    const input = stopp.parseInput({ k: 0, devMs: devOf(i) });
+    if (input === null) throw new Error('ungueltig');
+    return stopp.input(s, pid, input, NOW);
+  }, start(stopp, n));
+}
+
 const SECRET_CASES: SecretCase[] = [
+  {
+    name: 'bombe Pumpphase (Platzpunkte roh, Pumpstand des Besitzers)',
+    def: bombe,
+    setup: bombePumping,
+    secrets: (s: BombeState, owner) => [
+      '"burst',
+      `${quoted(owner)}:${JSON.stringify(s.burst[owner])}`,
+      `${quoted(owner)}:${pumpOf(indexOf(owner))}`,
+    ],
+  },
+  {
+    name: 'stopp Laufphase (dev-Werte roh und als Zahl)',
+    def: stopp,
+    setup: stoppRun,
+    secrets: (_s, owner) => {
+      const dev = devOf(indexOf(owner));
+      return ['"devs', `${quoted(owner)}:[${dev}`, `:${dev},`, `:${dev}}`, `[${dev},`, `[${dev}]`];
+    },
+  },
   { name: 'gleichklang Frage', def: gleichklang, setup: gleichklangQuestion, secrets: (_s, owner) => [quoted(owner)] },
   { name: 'werwuerde Abstimmung', def: werwuerde, setup: werwuerdeVote, secrets: (_s, owner) => [quoted(owner)] },
   {

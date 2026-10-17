@@ -3,10 +3,12 @@ import { GRACE, TICK } from '../engine/durations';
 import { DRINK_CAP, type DrinkPlan, type RawDrinks } from '../engine/drinks';
 import { isRecord } from './common';
 import { blitz } from './blitz/logic';
+import { bombe } from './bombe/logic';
 import { farbfalle } from './farbfalle/logic';
 import { gleichklang } from './gleichklang/logic';
 import { hammer } from './hammer/logic';
 import { schaetzfuchs } from './schaetzfuchs/logic';
+import { stopp } from './stopp/logic';
 import { werwuerde } from './werwuerde/logic';
 import type { GameDef } from './types';
 
@@ -25,6 +27,12 @@ const CASES: Case[] = [
   { def: schaetzfuchs, first: () => ({ guess: 123456 }), finish: () => [{ guess: 123456 }] },
   { def: gleichklang, first: () => ({ k: 0, i: 0, ms: 300 }), finish: () => [{ k: 0, i: 0, ms: 300 }] },
   { def: werwuerde, first: () => ({ k: 0, to: 'p0' }), finish: () => [{ k: 0, to: 'p0' }] },
+  {
+    def: bombe,
+    first: () => ({ b: 0, n: 2, cash: false }),
+    finish: () => [0, 1, 2].map((b) => ({ b, n: 2, cash: true })),
+  },
+  { def: stopp, first: () => ({ k: 0, devMs: 300 }), finish: () => [{ k: 0, devMs: 300 }] },
 ];
 
 const GARBAGE: unknown[] = [
