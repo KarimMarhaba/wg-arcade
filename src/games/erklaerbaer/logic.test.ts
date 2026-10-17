@@ -384,13 +384,24 @@ describe('erklaerbaer Zugwechsel und Deck', () => {
     s = skip(s);
     s = taboo(s);
     expect(s.pos).toBe(3);
+    const open = card(s, 3).term;
     const r = nextPhase(s, 3);
     expect(r.phase).toBe('reveal');
+    expect(r.pos).toBe(4);
     const t = nextPhase(r, 3);
-    expect(t).toMatchObject({ phase: 'explain', k: 1, pos: 3, dur: s.durs.turn });
+    expect(t).toMatchObject({ phase: 'explain', k: 1, pos: 4, dur: s.durs.turn });
     expect(explainer(t)).not.toBe(first);
-    expect(view(t, explainer(t))).toMatchObject({ hits: 0, taboos: 0, c: 3, k: 1, term: card(t, 3).term });
+    expect(view(t, explainer(t))).toMatchObject({ hits: 0, taboos: 0, c: 4, k: 1, term: card(t, 4).term });
+    expect(card(t, 4).term).not.toBe(open);
     expect(t.log).toEqual([]);
+  });
+
+  it('die offene Karte am Zugende ist verbrannt: sie steht in der Aufloesung und kehrt im naechsten Zug nicht wieder', () => {
+    const s = skip(make(3, 6));
+    const open = card(s).term;
+    const r = nextPhase(s, 3);
+    expect((view(r, 'p0') as { log: { term: string; res: string }[] }).log.at(-1)).toEqual({ term: open, res: 'open' });
+    for (const pid of pidsOf(3)) expect(JSON.stringify(view(nextPhase(r, 3), pid))).not.toContain(`"${open}"`);
   });
 
   it('die Punkte beider Zuege summieren sich, jeder Beteiligte hat ein Label', () => {

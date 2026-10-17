@@ -1,9 +1,11 @@
 import { blitz } from './blitz/logic';
 import { bombe } from './bombe/logic';
+import { erklaerbaer } from './erklaerbaer/logic';
 import { farbfalle } from './farbfalle/logic';
 import { gleichklang } from './gleichklang/logic';
 import { hammer } from './hammer/logic';
 import { luegenbaron } from './luegenbaron/logic';
+import { pokerface } from './pokerface/logic';
 import { schaetzfuchs } from './schaetzfuchs/logic';
 import { stopp } from './stopp/logic';
 import type { GameDef, GameId } from './types';
@@ -23,6 +25,8 @@ export const GAMES: Record<GameId, GameDef<any, any, any>> = {
   stopp,
   luegenbaron,
   verraeter,
+  pokerface,
+  erklaerbaer,
 };
 
 export function gamesFor(only?: GameId): Record<string, GameDef<any, any, any>> {

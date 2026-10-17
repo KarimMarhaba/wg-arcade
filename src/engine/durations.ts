@@ -29,6 +29,13 @@ export const VR_VOTE = 12000;
 export const VR_GUESS = 10000;
 export const VR_REVEAL = 4000;
 export const VR_DUO_TURN = 6000;
+export const PF_MISSION = 6000;
+export const PF_TALK = 55000;
+export const PF_GUESS = 18000;
+export const PF_REVEAL = 6000;
+export const EB_TURN = 35000;
+export const EB_SKIP = 3000;
+export const EB_REVEAL = 4000;
 
 export const BLITZ_MAX = 1000;
 export const GRACE = 1500;

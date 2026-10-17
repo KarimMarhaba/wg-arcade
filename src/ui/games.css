@@ -1118,3 +1118,246 @@
   font-size: var(--fs-m);
   overflow-wrap: anywhere;
 }
+
+.pf-stage,
+.eb-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s4);
+  min-height: 0;
+  min-width: 0;
+}
+
+.pf-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-s);
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.pf-topic {
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s3);
+  background: var(--bg-2);
+  border: var(--bw) solid var(--lime);
+  border-radius: var(--r1);
+}
+
+.pf-topic-text {
+  font-size: var(--fs-m);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.pf-card {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4);
+  text-align: center;
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r2);
+  box-shadow: var(--sh-sm);
+}
+
+.pf-card[data-big='true'] {
+  flex: 1;
+  align-content: center;
+  box-shadow: var(--sh);
+}
+
+.pf-mission {
+  font-size: var(--fs-l);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.pf-card[data-big='true'] .pf-mission {
+  font-size: var(--fs-xl);
+}
+
+.pf-hide {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-dim);
+}
+
+.pf-watch,
+.pf-ask,
+.eb-ask,
+.eb-wait {
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.pf-ask,
+.eb-ask {
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  color: var(--ink);
+}
+
+.pf-done {
+  padding: var(--s3);
+  font-size: var(--fs-l);
+  text-align: center;
+  color: var(--on-accent);
+  background: var(--ok);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+  box-shadow: var(--sh-sm);
+}
+
+.pf-stage .choice-pad .btn {
+  padding: var(--s3);
+}
+
+.pf-stage .choice-text {
+  font-size: var(--fs-s);
+  line-height: 1.2;
+  text-align: left;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.pf-rows {
+  display: grid;
+  gap: var(--s2);
+  padding: 0;
+  list-style: none;
+}
+
+.pf-row {
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s2) var(--s3);
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+}
+
+.pf-row[data-done='true'] {
+  border-color: var(--ok);
+}
+
+.pf-row-head {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  font-weight: 800;
+}
+
+.pf-row-text {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.pf-row-marks {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-dim);
+}
+
+.eb-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+}
+
+.eb-role[data-role='guard'] {
+  color: var(--warn);
+}
+
+.eb-card {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  text-align: center;
+  background: var(--bg-2);
+  border: var(--bw) solid var(--orange);
+  border-radius: var(--r2);
+  box-shadow: var(--sh);
+}
+
+.eb-term {
+  font-size: var(--fs-xl);
+  line-height: 0.95;
+  overflow-wrap: anywhere;
+}
+
+.eb-taboo {
+  display: grid;
+  gap: var(--s1);
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  text-transform: uppercase;
+  list-style: none;
+  color: var(--bad);
+}
+
+.eb-mime {
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  color: var(--ink-dim);
+}
+
+.eb-count {
+  font-family: var(--font-display);
+  font-size: var(--fs-m);
+  font-weight: 800;
+  text-align: center;
+}
+
+.eb-actions {
+  display: grid;
+  gap: var(--s3);
+}
+
+.eb-shout {
+  font-size: var(--fs-l);
+  line-height: 1;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.eb-log {
+  display: grid;
+  gap: var(--s1);
+  padding: 0;
+  list-style: none;
+}
+
+.eb-item {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--s1) var(--s3);
+  font-weight: 700;
+  background: var(--bg-2);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r1);
+}
+
+.eb-item[data-res='hit'] {
+  border-color: var(--ok);
+}
+
+.eb-item[data-res='taboo'] {
+  border-color: var(--warn);
+}
+
+.eb-item-mark {
+  font-weight: 800;
+  color: var(--ink-dim);
+}

@@ -307,7 +307,7 @@ describe('pokerface und erklaerbaer: prep findet die Phase, in der p0 eingeben d
 
     it(`erklaerbaer: zwoelf Skips von p0 beenden den Zug beim naechsten Tick (speed ${speed})`, () => {
       const { s, now } = begin(ebCase, 3, speed);
-      const done = ebCase.finish(s, 'p0').reduce((q, raw) => erklaerbaer.input(q, 'p0', parsed(erklaerbaer, raw), now), s);
+      const done = feed(ebCase, s, 'p0', now) as EbState;
       expect(done.phase).toBe('explain');
       expect(erklaerbaer.tick(done, now + 1, new Set(pidsOf(3))).phase).toBe('reveal');
     });

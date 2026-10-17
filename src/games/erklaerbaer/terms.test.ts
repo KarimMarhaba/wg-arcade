@@ -61,7 +61,7 @@ describe('erklaerbaer Bank', () => {
     ];
     expect(bankProblems(bad, { min: 1, text: (x) => [[x.term, 18], ...x.taboo.map((t) => [t, 18] as const)] }).some((p) => p.includes('zu lang'))).toBe(true);
     const contained = bad.filter((x) => x.taboo.some((w) => norm(x.term).includes(norm(w))));
-    expect(contained).toHaveLength(1);
+    expect(contained.map((x) => x.term)).toEqual(["Apfelsaft", "Dampfschifffahrtsgesellschaft"]);
     expect(new Set((bad[1] as (typeof bad)[number]).taboo.map(norm)).size).toBe(2);
   });
 });

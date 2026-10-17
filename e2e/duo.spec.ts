@@ -411,6 +411,7 @@ test.describe('Layout ohne fast, zwei Seiten', () => {
       await screen(p, 'game').waitFor({ timeout: 15_000 });
       await expect(screen(p, 'game')).toHaveAttribute('data-state', 'explain');
     }
+    const startedAt = Date.now();
     const roles = await Promise.all(pages.map((p) => screen(p, 'game').getAttribute('data-role')));
     expect([...roles].sort()).toEqual(['explainer', 'guesser']);
     const exp = pages[roles.indexOf('explainer')] as Page;
@@ -428,10 +429,19 @@ test.describe('Layout ohne fast, zwei Seiten', () => {
     await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-erklaerbaer-skipped-${k}`)));
 
     for (let c = 2; c <= 12; c++) {
-      await tid(exp, 'btn-skip').click({ timeout: 2000 });
-      await expect(tid(exp, 'eb-term')).toHaveAttribute('data-c', String(c));
+      const clicked = await exp.evaluate(() => {
+        const b = document.querySelector<HTMLElement>('[data-testid=btn-skip]');
+        b?.click();
+        return b !== null;
+      });
+      if (!clicked) break;
+      await exp.waitForFunction((n) => {
+        const state = document.querySelector('[data-screen=game]')?.getAttribute('data-state');
+        return state === 'reveal' || Number(document.querySelector('[data-testid=eb-term]')?.getAttribute('data-c') ?? -1) >= n;
+      }, c);
     }
     for (const p of pages) await expect(screen(p, 'game')).toHaveAttribute('data-state', 'reveal', { timeout: 10_000 });
+    expect(Date.now() - startedAt, 'Skips verkürzen den Zug').toBeLessThan(32_000);
     for (const p of pages) await expect(tid(p, 'eb-log')).toBeVisible();
     await Promise.all(pages.map((p, k) => audit(p, 'game', `duo-erklaerbaer-reveal-${k}`)));
     expect(errors).toEqual([]);
