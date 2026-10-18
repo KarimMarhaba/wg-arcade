@@ -91,7 +91,7 @@
   --ff-grid-h: 36dvh;
   --balloon-d: min(62vw, 28dvh, 240px);
   --ring-d: min(60vw, 28dvh, 240px);
-  --canvas-d: min(100%, 36dvh, 340px);
+  --canvas-d: min(100%, 40dvh, 360px);
   --dot-d: 24px;
 
   --font-display: 'Bricolage Grotesque Variable', 'Archivo Black', system-ui, sans-serif;

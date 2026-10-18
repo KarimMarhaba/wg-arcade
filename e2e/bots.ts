@@ -352,7 +352,7 @@ export async function playErklaerbaer(page: Page, o: { bias?: number } = {}): Pr
   return { game: 'erklaerbaer', seen };
 }
 
-const SPIRAL_STEPS = 24;
+const SPIRAL_STEPS = 6;
 
 export async function scribble(page: Page): Promise<void> {
   const box = await page.evaluate(() => {
@@ -366,10 +366,9 @@ export async function scribble(page: Page): Promise<void> {
   await page.mouse.down();
   for (let i = 1; i <= SPIRAL_STEPS; i++) {
     const r = (i / SPIRAL_STEPS) * box.w * 0.4;
-    await page.mouse.move(cx + r * Math.cos(i * 0.5), cy + r * Math.sin(i * 0.5));
+    await page.mouse.move(cx + r * Math.cos(i), cy + r * Math.sin(i));
   }
   await page.mouse.up();
-  await page.mouse.move(box.x + box.w * 0.15, box.y + box.h * 0.15);
   await page.mouse.down();
   await page.mouse.up();
 }
